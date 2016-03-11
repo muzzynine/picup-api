@@ -1,0 +1,233 @@
+/**
+ * Created by impyeong-gang on 12/23/15.
+ */
+
+var Promise = require('bluebird');
+var _ = require('lodash');
+var aws = require('aws-sdk');
+
+aws.config.update({region:'ap-northeast-1'});
+var config = require('../config');
+var s3 = new aws.S3({apiVersion : config.S3.apiVersions});
+var AppError = require('./appError');
+var Sync = require('./sync');
+
+var originalBucketName = config.S3.originalBucket;
+var thumbnailBucketName = config.S3.minionBucket;
+
+
+/**
+ * AWS S3 오브젝트들의 배열을 받아 해당 오브젝트들이 있는지 판단한다.
+ * 존재하지 않는 오브젝트들의 배열을 리턴한다.
+ * S3요청이 실피했을때는 500을 리턴한다.
+ * @param objectArray
+ * @param fn
+ */
+var checkExistObjects = function(objectArray, fn){
+    var results = [];
+
+    //노드 배열을 arr에 복사한다.
+    var arr = objectArray.slice(0);
+
+    (function check(){
+        if(arr.length === 0){
+            return fn(null, results);
+        }
+        var node = arr.splice(0, 1)[0];
+
+        /*
+         * presence가 delete일 경우 확인할 필요 없다.
+         */
+        if(node.presence === Sync.PRESENCE_DELETE) return setTimeout(check, 0);
+
+        /*
+         * 커밋 요청 시 s3 경로를 가지고 있지 않는 노드의 경우(needBlocks을 통해 올려야할 경로가 필요한 노드의 경우),
+         * s3Path를 세팅하여 준다.
+         */
+        if(!node.s3Path) {
+            node.s3Path = Sync.S3PathGenerator(originalBucketName, node.gid, node.relPath, node.kind);
+            results.push(node);
+            return setTimeout(check, 0);
+        }
+
+        /*
+         * s3Path 필드가 default일 경우에는 전송을 확인할 필요 없이, 즉시 커밋하면 되므로, 넘어가도록 한다.
+         */
+        if(node.s3Path === "default") return setTimeout(check, 0);
+
+        var s3ValueObj = Sync.S3PathSeparator(node.s3Path);
+
+        /* s3에 존재하지 않는 경우에 클라이언트에서 업로드를 필요로 하므로 콜백을 통해 알리기 위하여 result에 해당 노드를 넣는다. */
+        checkExistObject(s3ValueObj.bucket, s3ValueObj.key, function(err, data){
+            if(err){
+                if(err.errorCode === 404) {
+                    //저장소에 파일이 존재하지 않는 오브젝트의 경우 result에 그 정보를 저장한다.
+                    node.s3Path = Sync.S3PathGenerator(originalBucketName, node.gid, node.relPath, node.kind);
+                    results.push(node);
+                }
+                else return fn(AppError.throwAppError(500));
+            }
+            setTimeout(check, 0);
+        });
+    })();
+};
+
+
+/**
+ * AWS S3 오브젝트들의 배열을 받아 해당 오브젝트들이 있는지 판단한다.
+ * 존재하지 않는 오브젝트들의 배열을 리턴한다.
+ * S3요청이 실피했을때는 500을 리턴한다.
+ * @param objectArray
+ * @param fn
+ */
+var checkExistNodeObjectsAsync = function(nodeArray){
+    return new Promise(function(resolve, reject){
+        var notExists = [];
+        var jobs = [];
+
+	_.forEach(nodeArray, function(node){
+	    if(node.s3Path !== "default" && node.presence !== Sync.PRESENCE_DELETE){
+		if(!node.s3Path){
+		    Sync.S3PathGenerator(originalBucketName, node.gid, node.relPath, node.kind);
+                    notExists.push(node);
+		} else {
+		    jobs.push(checkExistObject(node));
+		}
+	    }
+	});
+
+        Promise.settle(jobs).then(function(results){
+            results.forEach(function(result){
+                if(!result.isFulfilled()){
+                    var err = result.reason();
+                    if(err.errorCode === 404){
+                        notExists.push(err.data);
+                    } else {
+                        return reject(err);
+                    }
+                }
+            });
+            resolve(notExists);
+        });
+    });
+};
+
+
+var checkExistThumbObjectsAsync = function(nodeArray){
+    return new Promise(function(resolve, reject){
+        var notExists = [];
+        var jobs = [];
+
+	_.forEach(nodeArray, function(node){
+	    if(node.s3Path !== "default" && node.presence !== Sync.PRESENCE_DELETE){
+		if(!node.s3Path){
+		    Sync.S3PathGenerator(originalBucketName, node.gid, node.relPath, node.kind);
+                    notExists.push(node);
+		} else {
+		    jobs.push(checkExistObject(node));
+		}
+	    }
+	});
+
+        Promise.settle(jobs).then(function(results){
+            results.forEach(function(result){
+                if(!result.isFulfilled()){
+                    var err = result.reason();
+                    if(err.errorCode === 404){
+                        notExists.push(err.data);
+                    } else {
+                        return reject(err);
+                    }
+                }
+            });
+            resolve(notExists);
+        });
+    });
+};
+
+
+
+/**
+ * AWS S3 오브젝트들의 배열을 받아 해당 썸네일 오브젝트들이 있는지 판단한다.
+ * 존재하지 않는 오브젝트들의 배열을 리턴한다.
+ * S3요청이 실패했을때는 500을 리턴한다.
+ * @param objectArray
+ * @param fn
+ */
+var checkThumbExistObjects = function(objectArray, fn){
+    var results = [];
+
+    //노드 배열을 arr에 복사한다.
+    var arr = objectArray.slice(0);
+
+    (function check(){
+        if(arr.length === 0){
+            return fn(null, results);
+        }
+        var node = arr.splice(0, 1)[0];
+
+        /*
+         * presence가 delete일 경우 확인할 필요 없다.
+         */
+        if(node.presence === Sync.PRESENCE_DELETE) return setTimeout(check, 0);
+
+
+        /*
+         * s3ThumbnailPath 필드가 default일 경우 넘어간다
+         */
+        if(node.s3ThumbnailPath === "default") return setTimeout(check, 0);
+
+        /*
+         * 커밋 요청 시 s3 썸네일 경로를 가지고 있지 않는 경우는 s3Path가 null로,
+         * Sync#generateNodeInfo에서 썸네일 경로를 생성하지 않았을 경우다.
+         * 이 함수까지 도달한 node의 경우는 전부 s3ThumbnailPath가 존재하거나, default인 경우로,
+         * s3ThumbnailPath가 null일 경우는 없다.
+         */
+
+        var s3ThumbValueObj = Sync.S3PathSeparator(node.s3ThumbnailPath);
+        checkExistObject(s3ThumbValueObj.bucket, s3ThumbValueObj.key, function(err, data){
+            if(err){
+                if(err.errorCode === 404) {
+                    //저장소에 파일이 존재하지 않는 오브젝트의 경우 result에 그 정보를 저장한다.
+                    results.push(node);
+                }
+                else return fn(AppError.throwAppError(500));
+            }
+            setTimeout(check, 0);
+        });
+    })();
+};
+
+
+/**
+ * AWS S3의 지정된 버킷과 키에 오브젝트가 존재하는지 검사한다.
+ * @param bucket
+ * @param key
+ * @param fn
+ */
+var checkExistObject = function(node){
+    return new Promise(function(resolve, reject){
+        var s3PathSet = Sync.S3PathSeparator(node.s3Path);
+        var params = {
+            Bucket: s3PathSet.bucket,
+            Key: s3PathSet.key,
+            Range : 'bytes=0-1'
+        };
+
+        s3.headObject(params, function(err, data){
+            if(err){
+                if(err.statusCode === 404) {
+                    var notExistErr = AppError.throwAppError(404);
+                    notExistErr.data = node;
+                    return reject(notExistErr);
+                }
+                else return reject(AppError.throwAppError(500));
+            }
+            resolve(data);
+        });
+    });
+};
+
+exports.checkExistObject = checkExistObject;;
+exports.checkExistNodeObjectsAsync = checkExistObjectsAsync;
+exports.checkExistThumbObjectsAsync = checkExistObjectsAsync;

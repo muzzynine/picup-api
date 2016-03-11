@@ -1,0 +1,22 @@
+'use strict'
+
+var os = require('os');
+var _ = require('lodash');
+var Promise = require('bluebird');
+
+function startupHelper(){}
+
+var getIpAddrV4 = function(){
+    var interfaces = os.networkInterfaces();
+    var eth0 = interfaces['eth0'];
+
+    _.forEach(eth0, function(ep){
+	if(ep.family === 'IPv4'){
+	    return ep.address;
+	};
+    });
+
+    throw new Error("could not found IPv4 address");
+};
+
+exports.getIpAddrV4 = getIpAddrV4;
