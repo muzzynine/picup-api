@@ -161,7 +161,7 @@ router.post('/:uid/profile', function (req, res) {
         res.json({
             uid: user.id,
             nickname: user.nickname,
-            profile_s3path: user.profile_s3path
+            profile_s3path: user.profile_path
         });
     }).catch(function(err){
         log.error("grpRouter#setProfile", {err:err}, {user : user.id});

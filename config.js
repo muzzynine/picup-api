@@ -9,7 +9,7 @@ module.exports = {
         */
         name: 'picup-api',
         version: ["0.0.1"],
-        addr : 'http://192.168.123.106',
+        addr : 'http://192.168.123.100',
         port : '8090',
         url : {
             group : '/api/group'
@@ -17,7 +17,7 @@ module.exports = {
 
         //in develop enviroment, just indirect to api endpoint.
         reverse_proxy : {
-            addr : 'http://192.168.123.106',
+            addr : 'http://192.168.123.100',
             port : '8000'
         }
     },
@@ -30,7 +30,7 @@ module.exports = {
     },
 
     auth_server: {
-        addr : '192.168.123.106',
+        addr : '192.168.123.100',
         port : '8110',
         authPath : '/verify/token'
     },
