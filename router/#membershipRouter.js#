@@ -157,11 +157,12 @@ router.post('/:uid/profile', function (req, res) {
 
     /*authentication*/
     membershipController.setProfile(user, nickname, s3path, db).then(function(user){
+	console.
         res.status(200);
         res.json({
             uid: user.id,
             nickname: user.nickname,
-            profile_s3path: user.profile_path
+            profile_s3path: user.profile_s3path
         });
     }).catch(function(err){
         log.error("grpRouter#setProfile", {err:err}, {user : user.id});
