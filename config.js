@@ -9,7 +9,7 @@ module.exports = {
         */
         name: 'picup-api',
         version: ["0.0.1"],
-        addr : 'http://192.168.123.100',
+        addr : 'http://54.238.255.69',
         port : '8090',
         url : {
             group : '/api/group'
@@ -17,8 +17,8 @@ module.exports = {
 
         //in develop enviroment, just indirect to api endpoint.
         reverse_proxy : {
-            addr : 'http://192.168.123.100',
-            port : '8000'
+            addr : 'http://h3.bigfrogcorp.com',
+            port : '80'
         }
     },
 
@@ -30,7 +30,7 @@ module.exports = {
     },
 
     auth_server: {
-        addr : '192.168.123.100',
+        addr : '54.238.255.255',
         port : '8110',
         authPath : '/verify/token'
     },
@@ -56,7 +56,7 @@ module.exports = {
     },
 
     AMQP : {
-        amqpAddr: "amqp://localhost:5672",
+        amqpAddr: "amqp://bigfrogcorp.com:5672",
 
         QUEUE : {
             name : "picup"
