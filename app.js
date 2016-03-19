@@ -3,7 +3,7 @@
  */
 var express = require('express');
 var bodyParser = require('body-parser');
-var config = require('./config');
+var config = require('./config/config');
 var passport = require('passport');
 var path = require('path');
 var cookieParser = require('cookie-parser');
@@ -11,9 +11,6 @@ var session = require('express-session');
 var logging = require('./lib/logger');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('MainLogger');
-
-//var RedisStore = require('connect-redis')(session);
-
 
 var app = express();
 
@@ -37,7 +34,7 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended : false}));
 // session setup
-/*
+
 app.use(session({ secret : 'bigfrogdevs', resave : true, saveUninitialized : true }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -49,7 +46,7 @@ passport.serializeUser(function(user, done){
 passport.deserializeUser(function(user, done){
     done(null, user);
 })
-*/
+
 /*
 app.use(session({
     store : new RedisStore(config.sessionStore),

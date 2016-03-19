@@ -5,7 +5,7 @@
 
 var Promise = require('bluebird');
 var _ = require('lodash');
-var config = require('../config');
+var config = require('../config/config');
 var NodeMeta = require('./nodeMeta');
 var NodeDelta = require('./nodeDelta');
 var Sync = require('../lib/sync');

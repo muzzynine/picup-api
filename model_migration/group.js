@@ -3,7 +3,7 @@
  */
 var GroupScheme = require('./scheme').GROUP;
 var AppError = require('../lib/appError');
-var config = require('../config');
+var config = require('../config/config');
 var Promise = require('bluebird');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('DataModelLogger');

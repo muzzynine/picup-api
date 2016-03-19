@@ -5,7 +5,7 @@
  */
 var Promise = require('bluebird')
 var amqp = require('amqplib/callback_api');
-var config = require('../config');
+var config = require('../config/config');
 var AppError = require('../lib/appError');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('AMQPLogger');
