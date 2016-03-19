@@ -1,7 +1,7 @@
 /**
  * Created by impyeong-gang on 1/11/16.
  */
-var config = require('../config').DB.MYSQL;
+var config = require('../config/config').DB.MYSQL;
 var Sequelize = require('sequelize');
 var Dynamo = require('dynamoose');
 var bunyan = require('bunyan');

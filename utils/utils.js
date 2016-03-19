@@ -4,7 +4,6 @@
  * Created by impyeong-gang on 10/14/15.
  */
 var _= require('lodash');
-var config = require('../config');
 
 /**
  * 델타리스트의 델타들에 포함된 단위 델타정보들을 모두 합쳐 반환한다.(커밋)
