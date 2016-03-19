@@ -30,6 +30,8 @@ var testNodeDeltaInstantiateOne = function(){
 };
 
 describe('NodeDelta - node delta dao', function(){
+    this.timeout(5000);
+    
     describe('#getLatestNodeDelta', function(){
         var nodeDelta = testNodeDeltaInstantiateOne();
 
