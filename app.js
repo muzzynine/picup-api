@@ -6,7 +6,6 @@ var bodyParser = require('body-parser');
 var config = require('./config');
 var passport = require('passport');
 var path = require('path');
-var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var session = require('express-session');
 var logging = require('./lib/logger');
@@ -23,7 +22,12 @@ app.set('models', require('./model_migration'));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-app.use(logger('dev'));
+if(process.env.NODE_ENV == 'development'){
+    console.log("Server running Development Mode");
+    app.use(require('morgan')('dev'));
+} else if(process.env.NODE_ENV == 'production'){
+    console.log("Server running Production Mode");
+}
 
 // 304 disable
 app.disable('etag');
@@ -33,7 +37,7 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended : false}));
 // session setup
-
+/*
 app.use(session({ secret : 'bigfrogdevs', resave : true, saveUninitialized : true }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -45,6 +49,7 @@ passport.serializeUser(function(user, done){
 passport.deserializeUser(function(user, done){
     done(null, user);
 })
+*/
 /*
 app.use(session({
     store : new RedisStore(config.sessionStore),
