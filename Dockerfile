@@ -31,7 +31,7 @@ FROM buildpack-deps:jessie
 
 #Install app dependencies
 COPY    package.json /src/package.json
-ENV	NODE_ENV="production"
+ENV	NODE_ENV production
 RUN     cd /src; npm install
 
 
