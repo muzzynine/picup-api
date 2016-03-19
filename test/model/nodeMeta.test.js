@@ -34,7 +34,9 @@ var testNodeMetaInstantiateOne = function(){
     });
 };
 
-describe("nodeMeta - node's meta infomation dao", function(){
+describe("NodeMeta - node's meta infomation dao", function(){
+    this.timeout(5000);
+    
     describe('#findNodeById', function(){
         var testNode = testNodeMetaInstantiateOne();
 

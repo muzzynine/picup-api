@@ -1,0 +1,72 @@
+{"name":"DatabaseConnectLogger","hostname":"muzzynine.local","pid":99469,"level":30,"msg":"index#Database(RDBMS)/(NOSQL) connected","time":"2016-03-19T10:28:38.919Z","v":0}
+{"name":"DatabaseConnectLogger","hostname":"muzzynine.local","pid":99469,"level":30,"msg":"index#Database(RDBMS) association set completed","time":"2016-03-19T10:28:38.958Z","v":0}
+{"name":"DatabaseConnectLogger","hostname":"muzzynine.local","pid":99469,"level":30,"msg":"index#Database sync now","time":"2016-03-19T10:28:38.961Z","v":0}
+192.168.123.100
+{"name":"AMQPLogger","hostname":"muzzynine.local","pid":99469,"level":30,"msg":"amqp connected successfully","time":"2016-03-19T10:28:39.146Z","v":0}
+<testsuite name="Mocha Tests" tests="65" failures="0" errors="0" skipped="0" timestamp="Sat, 19 Mar 2016 10:28:53 GMT" time="14.294">
+<testcase classname="Startup - ready for start server #getIpAddrV4" name="It works for me" time="0"/>
+<testcase classname="groupController - businessLogic for group job #createGroup - Create new group" name="It works for me" time="0.106"/>
+<testcase classname="groupController - businessLogic for group job #updateGroupName - group name change" name="It works for me" time="0.042"/>
+<testcase classname="groupController - businessLogic for group job #commitInternal - commit new delta for group" name="It works for me. Init commit (0 -&gt; 1)" time="0.222"/>
+<testcase classname="groupController - businessLogic for group job #commitInternal - commit new delta for group" name="It works for me. long commit (0 -&gt; 2)" time="0.271"/>
+<testcase classname="groupController - businessLogic for group job #update - get between src to dst delta for update" name="pass wrong argument(src revision is wrong)" time="0.002"/>
+<testcase classname="groupController - businessLogic for group job #update - get between src to dst delta for update" name="pass wrong argument(dst revision is wrong)" time="0"/>
+<testcase classname="groupController - businessLogic for group job #update - get between src to dst delta for update" name="pass wrong argument(src &gt; dst)" time="0.001"/>
+<testcase classname="groupController - businessLogic for group job #update - get between src to dst delta for update" name="It works for me(0 -&gt; 1 update)" time="0.322"/>
+<testcase classname="groupController - businessLogic for group job #update - get between src to dst delta for update" name="It works for me(0 -&gt; 2 update)" time="0.378"/>
+<testcase classname="awsS3 - aws s3 #checkExistNodeObject" name="It works for me" time="0.512"/>
+<testcase classname="awsS3 - aws s3 #checkExistNodeObject" name="not exist object" time="0.448"/>
+<testcase classname="awsS3 - aws s3 #checkExistThumbObject" name="It works for me" time="0.418"/>
+<testcase classname="awsS3 - aws s3 #checkExistThumbObject" name="not exist object" time="0.357"/>
+<testcase classname="awsS3 - aws s3 #checkExistNodeObjectsBatch" name="It works for me" time="0.435"/>
+<testcase classname="awsS3 - aws s3 #checkExistNodeObjectsBatch" name="node's presence 'delete' case" time="0"/>
+<testcase classname="awsS3 - aws s3 #checkExistNodeObjectsBatch" name="node's s3Path 'default' case" time="0"/>
+<testcase classname="awsS3 - aws s3 #checkExistNodeObjectsBatch" name="node's s3Path undefined or null case" time="0"/>
+<testcase classname="awsS3 - aws s3 #checkExistThumbObjectsBatch" name="It works for me" time="0.45"/>
+<testcase classname="awsS3 - aws s3 #checkExistThumbObjectsBatch" name="node's presence 'delete' case" time="0"/>
+<testcase classname="awsS3 - aws s3 #checkExistThumbObjectsBatch" name="node's s3Path 'default' case" time="0.001"/>
+<testcase classname="Sync - syncronization module #isBoundary" name="1 revision calculate" time="0.002"/>
+<testcase classname="Sync - syncronization module #isBoundary" name="another short prune revision calculate" time="0"/>
+<testcase classname="Sync - syncronization module #isBoundary" name="zero revision caclulate" time="0"/>
+<testcase classname="Sync - syncronization module #isBoundary" name="another far prune revision calculate" time="0"/>
+<testcase classname="Sync - syncronization module #getForwardRevision" name="1 revision calculate" time="0.001"/>
+<testcase classname="Sync - syncronization module #getForwardRevision" name="another prune calculate" time="0"/>
+<testcase classname="Sync - syncronization module #getForwardRevision" name="zero revision calculate" time="0"/>
+<testcase classname="Sync - syncronization module #getRightmostToZero" name="good case test" time="0"/>
+<testcase classname="Sync - syncronization module #getSkipDeltaNumber" name="diff 1 delta number" time="0"/>
+<testcase classname="Sync - syncronization module #getSkipDeltaNumber" name="diff &quot;to zero&quot; delta number" time="0"/>
+<testcase classname="Sync - syncronization module #getSkipDeltaNumber" name="diff middle delta number" time="0"/>
+<testcase classname="Sync - syncronization module #getDeltaList" name="traverse short delta list" time="0.001"/>
+<testcase classname="Sync - syncronization module #getDeltaList" name="traverse middle delta list(no include 0 rev)" time="0"/>
+<testcase classname="Sync - syncronization module #getDeltaList" name="traverse long delta list(include 0 rev)" time="0"/>
+<testcase classname="Sync - syncronization module #getDeltaList" name="traverse 0 start delta list" time="0.001"/>
+<testcase classname="Sync - syncronization module #S3PathGenerator" name="good test case - file" time="0"/>
+<testcase classname="Sync - syncronization module #S3PathGenerator" name="good test case - dir" time="0"/>
+<testcase classname="Sync - syncronization module #S3PathSeparator" name="good test case" time="0"/>
+<testcase classname="Node - node dao(contain meta, delta) #generateNodeInfo" name="good test case" time="0.001"/>
+<testcase classname="Node - node dao(contain meta, delta) Node#incrementRevi22sion" name="It works for me" time="0"/>
+<testcase classname="Node - node dao(contain meta, delta) #addNodeBatch" name="It works for me(node size 100)" time="0.143"/>
+<testcase classname="Node - node dao(contain meta, delta) #addNodeBatch" name="It works for me(node size &gt; 100" time="0.215"/>
+<testcase classname="Node - node dao(contain meta, delta) #replaceNodeBatch" name="It works for me (New revision delta add)" time="0.177"/>
+<testcase classname="Node - node dao(contain meta, delta) #replaceNodeBatch" name="It works for me(If same revision, Upsert)" time="0.208"/>
+<testcase classname="Node - node dao(contain meta, delta) #getAliveNodes3" name="It works for me" time="0.048"/>
+<testcase classname="Node - node dao(contain meta, delta) #saveNodeBatch" name="It works for me" time="0.36"/>
+<testcase classname="NodeDelta - node delta dao #getLatestNodeDelta" name="it works for me" time="0.043"/>
+<testcase classname="NodeDelta - node delta dao #getLatestNodeDelta" name="not exist node delta(not exist nid)" time="0.048"/>
+<testcase classname="NodeDelta - node delta dao #getLatestNodeDeltaBatch" name="it works for me" time="1.489"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByNidAndRev" name="it works for me" time="0.045"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByNidAndRev" name="not exist node delta(not exist nid)" time="0.06"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByNidAndRev" name="not exist node delta(not exist revision)" time="0.039"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByBetweenRev" name="It works for me" time="0.048"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByBetweenRev" name="not exist node delta(find by nid)" time="0.046"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByBetweenRev" name="not exist node delta between src to dst" time="0.047"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByBetweenRevBatch" name="It works for me" time="1.532"/>
+<testcase classname="NodeDelta - node delta dao #getNodeDeltaByBetweenRevBatch" name="1 nodes not exist" time="1.402"/>
+<testcase classname="NodeDelta - node delta dao #addNodeDeltaBatch" name="It works for me" time="0.063"/>
+<testcase classname="NodeDelta - node delta dao #addNodeDeltaBatch" name="Upsert well done" time="0.131"/>
+<testcase classname="NodeMeta - node's meta infomation dao #findNodeById" name="it works for me" time="0.041"/>
+<testcase classname="NodeMeta - node's meta infomation dao #findNodeByIdBatch" name="it works for me" time="0.06"/>
+<testcase classname="NodeMeta - node's meta infomation dao #getNodeMetaByGidAndRelPath" name="it works for me" time="0.043"/>
+<testcase classname="NodeMeta - node's meta infomation dao #getNodeMetaByGidAndRelPathBatch" name="it works for me" time="1.06"/>
+<testcase classname="NodeMeta - node's meta infomation dao #addNodeMetaBatch" name="it works for me" time="0.065"/>
+</testsuite>

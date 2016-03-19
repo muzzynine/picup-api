@@ -29,6 +29,11 @@
   },
   "devDependencies": {
     "jshint": "^2.8.0",
+    "mocha": "^2.4.5",
     "should": "^7.1.1"
-  }
+  },
+
+    "scripts": {
+	"test" : "./node_modules/.bin/mocha --recursive -R xunit test/ > test-reports.xml"
+    }
 }
