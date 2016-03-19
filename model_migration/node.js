@@ -5,6 +5,7 @@
 
 var Promise = require('bluebird');
 var _ = require('lodash');
+var config = require('../config');
 var NodeMeta = require('./nodeMeta');
 var NodeDelta = require('./nodeDelta');
 var Sync = require('../lib/sync');
@@ -13,10 +14,6 @@ var bunyan = require('bunyan');
 var log = bunyan.getLogger('DataModelLogger');
 
 module.exports = Node;
-
-var PRESENCE_ADD = "add";
-var PRESENCE_DELETE = "deleted";
-var PRESENCE_REPLACE = "replace";
 
 function Node(nid, gid, relPath, kind,
               revision, presence, name,
@@ -147,6 +144,7 @@ Node.bulkSaveNode = function(gid, nodes){
         })();
     })
 };
+
 
 Node.addNodeBatch = function(nodes){
     return new Promise(function(resolve, reject){
@@ -432,6 +430,8 @@ Node.isAlive = function(gid, nid){
 };
 
 /**
+ * getAliveNode3
+ *
  * 새로운 Skip-delta에 포함될 기존 그룹-델타들의 노드의 nid와 revision의 배열을 키로 리모트 데이터베이스에서
  * 얻어진 노드-델타 정보들과, 새로 커밋될 노드들의 정보를 연산하여, 새로운 델타에 포함될 노드정보를 얻는다. 
  * 해당 작업은 델타의 크기를 가능한한 최소로 유지하기 위함이다.
@@ -466,9 +466,7 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 		    //노드의 presence가 add인 경우는 반드시 alives에 추가한다.
 		    //같은 스킵-델타 안에서 delete가 존재할 수 있으나, 그것은 delete case에서 처리하도록 한다.
 		    //왜냐하면 비즈니스 특성상 add가 delete보다 빈번하게 일어나는 작업이기 때문이다.
-		    alives.push({
-			nid : node.nid,
-			revision : node.revision});
+		    alives.push(node);
 		} else if(node.presence === Sync.PRESENCE_REPLACE){
 		    //노드의 presence가 replace인 경우에 alives에 같은 nid가 존재하지 않는 경우는 추가하여야 한다.
 		    //같은 nid가 존재하고, revision이 더 높은 경우는 alives의 해당 노드를 최신 정보로 교체시켜 스킵-델타 내에 최신의 필요한 정보만
@@ -481,11 +479,7 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 			if(node.nid === included.nid && node.presence === included.presence){
 			    found = true;
 			    if(node.revision > included.revision){
-				alives.splice(j, 1, {
-				    nid : node.nid,
-				    revision : node.revision,
-				    presence : node.presence
-				});
+				alives.splice(j, 1, node);
 			    }
 			    break;
 			}
@@ -494,10 +488,7 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 		    //alives에서 같은 노드(nid와 presence가 일치하는)를 찾지 못했을 경우에는 추가한다.	    
 		   
 		    if(!found){
-			alives.push({
-			    nid : node.nid,
-			    revision : node.revision,
-			    presence : node.presence});
+			alives.push(node);
 		    }
 		    
 		} else {
@@ -514,9 +505,7 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 		    }
 
 		    if(!found){
-			alives.push({
-			    nid : node.nid,
-			    revision : node.revision});
+			alives.push(node);
 		    }
 		}
 	    });
@@ -730,12 +719,58 @@ Node.getChangeSet2 = function(gid, deltaData){
 }
 		
 
-	
-	    
+/**
+ * 커밋을 위한 델타 정보를 생성한다.
+ * @param deltaArray
+ * @param uid
+ * @param gid
+ * @param revision
+ * @returns {*}
+ */
+Node.generateNodeInfo = function(deltaArray, uid, gid, revision){
+    var thumbnailBucketName = config.S3.minionBucket;
 
+    var nodes = [];
 
+   for(var i in deltaArray){
+       var node;
+       var nodeInfo = deltaArray[i];
+       if(nodeInfo.presence === Sync.PRESENCE_ADD) {
+           /*
+            * 받은 s3Path가 default라면, s3ThumbnailPath 또한 default로 설정한다.
+            * 만약 s3Path가 null이라면, s3ThunmbnailPath 또한 null로 설정한다.
+            * s3Path가 있다면 s3ThumbnailPath를 세팅한다.
+            */
+           var addThumbnailPath = nodeInfo.s3Path === "default" ? "default"
+               : (!nodeInfo.s3Path || nodeInfo.s3Path === "null") ? null
+               : Sync.S3ThumbnailPathGenerator(nodeInfo.s3Path, thumbnailBucketName);
 
+           node = new Node(null, gid, nodeInfo.relPath, nodeInfo.kind,
+               revision, Sync.PRESENCE_ADD, nodeInfo.name,
+               uid, uid, nodeInfo.s3Path,
+               addThumbnailPath, nodeInfo.exif, Date.now(), Date.now(), nodeInfo.createdDate);
+       }
 
+       else if(nodeInfo.presence === Sync.PRESENCE_REPLACE) {
+           var replaceThumbnailPath = nodeInfo.s3Path === "default" ? "default"
+               : (!nodeInfo.s3Path || nodeInfo.s3Path === "null") ? null
+               : Sync.S3ThumbnailPathGenerator(nodeInfo.s3Path, thumbnailBucketName);
+
+           node = new Node(null, gid, nodeInfo.relPath, nodeInfo.kind,
+               revision, Sync.PRESENCE_REPLACE, nodeInfo.name,
+               nodeInfo.owner, null, nodeInfo.s3Path,
+               replaceThumbnailPath, null, Date.now(), null, nodeInfo.createdDate);
+       }
+
+       else if(nodeInfo.presence === Sync.PRESENCE_DELETE) {
+           node = new Node(null, gid, nodeInfo.relPath, nodeInfo.kind,
+               revision, Sync.PRESENCE_DELETE, null, null, null, null, null, null, Date.now());
+       }
+       nodes.push(node);
+
+    }
+    return nodes;
+};
 
 
 

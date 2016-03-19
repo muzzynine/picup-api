@@ -167,7 +167,7 @@ var commit = function(user, gid, revision, deltaArray, db, fn){
          * s3 storage에 있는지 확인함.
          * add, replace의 노드들을 확인해야함
          */
-        var nodeInfo = Sync.generateNodeInfo(deltaArray, user.id, gid, revision);
+        var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
         awsS3.checkExistObjects(nodeInfo, function(err, needBlocks){
             if(err){
                 log.error("GroupController#commit/Remote AWS S3 Request failed", {err:err});

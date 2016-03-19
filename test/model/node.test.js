@@ -58,6 +58,35 @@ var testNodeInstantiateOne = function(presence){
 };
 
 describe('Node - node dao(contain meta, delta)', function(){
+    this.timeout(5000);
+    describe('#generateNodeInfo', function(){
+        it("good test case", function(){
+            var deltaArray = [];
+
+            var gid = UUID.v1();
+            function obj(gid, relPath, presence, kind, name, s3path){
+                return {
+                    gid : gid,
+                    relPath : relPath,
+                    presence : presence,
+                    kind : kind,
+                    name : name,
+                    s3Path : s3path
+                }
+            }
+
+            deltaArray.push(obj(gid, "node1", "add", "dir", "hello", "default"));
+            deltaArray.push(obj(gid, "node2", "add", "file", "hello", "bigfrog.picup.bakkess/node2/node2"));
+            deltaArray.push(obj(gid, "node3", "add", "dir", "hello", "bigfrog.picup.bakkess/node3/node3"));
+            deltaArray.push(obj(gid, "node4", "add", "dir", "hello", "bigfrog.picup.bakkess/node3/node3"));
+            deltaArray.push(obj(gid, "node5", "replace", "dir", "jaebal", "default"));
+            deltaArray.push(obj(gid, "node6", "delete", "file"));
+
+            var newDeltaArray = Node.generateNodeInfo(deltaArray, "test_user", gid, 5);
+            newDeltaArray.should.have.length(6);
+        });
+    });
+
     describe('Node#incrementRevi22sion', function(){
         var testNode = testNodeInstantiateOne();
 
@@ -262,9 +291,13 @@ describe('Node - node dao(contain meta, delta)', function(){
 	it('It works for me', function(done){
 	    var toCommit = [new Node(UUID.v1(), testGroup.id, "testRelPath4", "file", 3, Sync.PRESENCE_ADD)];
 	    var expected = [];
-	    expected.push(addNode[1].nid, addNode[2].nid, toCommit[0].nid, deleteNode[1].nid, replaceNode2[0].nid);
+	    expected.push(addNode[1].nid, addNode[2].nid, toCommit[0].nid, deleteNode[1].nid, replaceNode2[0].nid, replaceNode2[1].nid);
 
 	    Node.getAliveNodes3(prevNode, toCommit).then(function(result){
+		result = _.map(result, function(r){
+		    return r.nid;
+		});
+		
 		if(_.isEqual(expected.sort(), result.sort())){
 		    return done()
 		}
@@ -277,7 +310,6 @@ describe('Node - node dao(contain meta, delta)', function(){
 
 
     describe('#saveNodeBatch', function(){
-	this.timeout(3000)
 	var testNodeCount = 50;
         var nodeChunkedSize = 20;
         var toAddNode = testNodeInstantiateMany(testNodeCount, "add");
