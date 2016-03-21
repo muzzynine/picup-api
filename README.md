@@ -1,2 +1,4 @@
 # picup-api
-hour api server (node.js v)
+hour api server(sync api) (node.js)
+
+
