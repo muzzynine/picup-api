@@ -7,7 +7,7 @@ var sync = require('../../lib/sync');
 var logger = require('../../lib/logger')
 
 describe('groupController - businessLogic for group job', function(){
-    this.timeout(5000)
+    this.timeout(5000);
     var testUser;
     
     before(function(done){

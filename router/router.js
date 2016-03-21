@@ -22,7 +22,7 @@ module.exports = router;
 
 
 router.use('/invite', inviteRouter);
-router.use(passport.authenticate('bearer'),
+router.use(passport.authenticate('bearer', { session : false }),
     function (err, req, res, next){
         if(err) {
             res.status(err.errorCode);
