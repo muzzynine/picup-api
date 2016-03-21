@@ -214,7 +214,7 @@ var commit2 = function(user, gid, revision, deltaArray, db){
          * s3 storage에 있는지 확인함.
          * add, replace의 노드들을 확인해야함
          */
-        var nodeInfo = Sync.generateNodeInfo(deltaArray, user.id, gid, revision);
+        var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
 
         awsS3.checkExistNodeObjectsBatch(nodeInfo).then(function(needBlocks){
             /* originConfirmList는 원본 파일이 s3에 존재하는 노드 리스트이다.
