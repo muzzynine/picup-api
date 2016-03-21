@@ -5,6 +5,8 @@ var Promise = require('bluebird');
 var validator = require('./../lib/validator');
 var validation = require('./../lib/validation');
 var AppError = require('./../lib/appError');
+var bunyan = require('bunyan');
+var log = bunyan.getLogger('MembershipLogger');
 
 var getMyProfile = function(user, db){
     return new Promise(function(resolve, reject){

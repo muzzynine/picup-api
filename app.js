@@ -35,30 +35,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended : false}));
 // session setup
 
-app.use(session({ secret : 'bigfrogdevs', resave : true, saveUninitialized : true }));
 app.use(passport.initialize());
-app.use(passport.session());
-
-passport.serializeUser(function(user, done){
-    done(null, user);
-});
-
-passport.deserializeUser(function(user, done){
-    done(null, user);
-})
-
-/*
-app.use(session({
-    store : new RedisStore(config.sessionStore),
-    secret : config.sessionStore.secret,
-    resave: false,
-    saveUninitialized: true,
-    cookie:{
-        httpOnly: true,
-        maxAge: 1000
-    }
-}));
-*/
 
 var auth = require('./lib/auth');
 auth.setPassportStrategy();
