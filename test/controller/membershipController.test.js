@@ -72,9 +72,41 @@ describe('membershipController - businness logic for membership job', function()
 	    });
 	});
     });
+
+    describe('#getUserProfilePath', function(){
+	it('It works for me', function(){
+	    var bucketAddr = require('../../config/config').S3.originalBucket;
+	    MembershipController.getUserProfilePath(testBaseInfo.user, db).then(function(s3Path){
+		var pathFragment = s3Path.split("/");
+		if(bucketAddr !== pathFragment[0] ||
+		   testBaseInfo.user.id !== pathFragment[1]){
+		    throw new Error("Test failed. exepcted " + bucketAddr + ", " + testBaseInfo.user.id + ", but actual " + pathFragment[0] + ", " + pathFragment[1]);
+		}
+	    }).catch(function(err){
+		throw err;
+	    });
+	});
+    });
+
+    describe('#setProfile', function(){
+	it('It works for me', function(done){
+	    MembershipController.setProfile(testBaseInfo.user, "changed", "changedS3Path", db).then(function(changed){
+		if(testBaseInfo.user.id === changed.id && "changed" === changed.nickname && "changedS3Path" === changed.profile_path){
+		    return done();
+		}
+		throw new Error("Test failed. expected " + testBaseInfo.user.id + ", " + "changed, changedS3Path, but actual " + changed.id + ", " + changed.nickname + ", " + changed.profile_path);
+	    }).catch(function(err){
+		done(err);
+	    });
+	});
+    });
 });
 		
 		
+
+
+
+
 
 
 
