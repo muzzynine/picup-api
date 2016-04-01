@@ -209,6 +209,7 @@ var commit = function(user, gid, revision, deltaArray, db, fn){
 
 var commit2 = function(user, gid, revision, deltaArray, db){
     return new Promise(function(resolve, reject){
+	console.log("in commit2");
         /*
          * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
          * s3 storage에 있는지 확인함.
@@ -247,40 +248,101 @@ var commit2 = function(user, gid, revision, deltaArray, db){
 };
 
 
-var commitInternal2 = function(user, gid, revision, nodeInfo, db) {
+var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
     return new Promise(function(resolve, reject){
+	console.log("start commit");
+	
+	var Connection = db.connection;
         var User = db.user;
         var Group = db.group;
-        var newRevision = revision + 1;
+        var newRevision = oldRevision + 1;
 
         if (nodeInfo.length === 0) {
             return resolve({
                 uid: user.id,
                 group: gid,
-                revision: revision,
+                revision: oldRevision,
                 delta: []
             });
         }
 
-        for (var i in nodeInfo) {
-            nodeInfo[i].incrementRevision();
-        }
+	var countCommitAddPhoto = 0;
+	var countCommitAddAlbum = 0;
+	var countCommitDelPhoto = 0;
+	var countCommitDelAlbum = 0;
+	var countAddedTotalFileSize = 0;
+	var countDeletedTotalFileSize = 0;
 
+	nodeInfo.forEach(function(node){
+	    console.log(node.exif);
+	    if(node.presence === Sync.PRESENCE_ADD){
+		if(node.kind === Sync.KIND_DIR){
+		    countCommitAddAlbum++;
+		} else if(node.kind === Sync.KIND_FILE){
+		    countCommitAddPhoto++;
+		    if(node.exif && node.exif.fileSize){
+			countAddedTotalFileSize += node.exif.fileSize;
+		    } 
+		}
+	    } else if(node.presence === Sync.PRESENCE_DELETE){
+		if(node.kind === Sync.KIND_DIR){
+		    countCommitDelAlbum++;
+		} else if(node.kind === Sync.KIND_FILE){
+		    countCommitDelPhoto++;
+		    if(node.exif && node.exif.fileSize){
+			countDeletedTotalFileSize += node.exif.fileSize;
+		    } 
+		}
+	    }
+	    node.incrementRevision();
+	});
+
+	console.log("pass count update");
+		
         User.getGroup(user, gid).then(function (group) {
             if (newRevision % 2 !== 1) {
                 return longCommit(group, newRevision, nodeInfo, db).then(function (toCommitNodeInfo) {
-	 	    return commitApply(user, group, newRevision, toCommitNodeInfo, db).then(function (committedInfo) {
-			return committedInfo;
-		    });
+		    return [toCommitNodeInfo, group];
                 });
             } else {
                 return shortCommit(group, newRevision, nodeInfo, db).then(function (toCommitNodeInfo) {
-		     return commitApply(user, group, newRevision, toCommitNodeInfo, db).then(function (committedInfo) {
-			return committedInfo;
-		    });
+		    return [toCommitNodeInfo, group];
                 });
             }
+	}).spread(function(toCommitNodeInfo, group){
+	    console.log("start commit apply");
+	    
+            return Connection.transaction(function(t){
+		return User.getGroup(user, group.id).then(function(verifiedGroup){
+                    if(oldRevision !== group.revision){
+			throw AppError.throwAppError(400);
+                    }
+
+		    var countAlbum = countCommitAddAlbum - countCommitDelAlbum;
+		    var countPhoto = countCommitAddPhoto - countCommitDelPhoto;
+		    var usageStorage = countAddedTotalFileSize - countDeletedTotalFileSize;
+
+		    console.log("commitApply2");
+		    
+                    return Group.commitApply2(group, newRevision, toCommitNodeInfo, countAlbum, countPhoto, usageStorage, t).then(function(){
+			console.log("commitApply");
+			return User.commitApply(user, countCommitAddPhoto, countCommitDelPhoto, countAddedTotalFileSize, t).then(function(){
+			    console.log("success");
+			    return {
+				revision: newRevision,
+				group: verifiedGroup,
+				data: toCommitNodeInfo
+			    };
+			});
+                    })
+		}).catch(function(err){
+                    throw err;
+		});
+	    }).then(function(committed){
+		return committed;
+	    })		
 	}).then(function(committedInfo){
+	    console.log("commit completed");
             return Group.getMemberList(gid).then(function (users) {
 		var uids = [];
                 users.forEach(function (user) {
@@ -348,33 +410,8 @@ var shortCommit = function(group, revision, commitChunk){
     })
 };
 
-var commitApply = function(user, group, revision, commitInfo, db){
+var commitApply = function(user, group, revision, commitInfo, countCommitAddPhoto, countCommitAddAlbum, countTotalFileSize, db){
     return new Promise(function(resolve, reject){
-        var Connection = db.connection;
-        var User = db.user;
-        var Group = db.group;
-
-        Connection.transaction(function(t){
-            return User.getGroup(user, group.id).then(function(group){
-                var oldRevision = revision-1;
-                if(oldRevision !== group.revision){
-                    throw AppError.throwAppError(400);
-                }
-                return Group.commitApply2(group, revision, commitInfo, t).then(function(){
-                    return {
-                        revision: revision,
-                        group: group,
-                        data: commitInfo
-                    };
-                })
-            }).catch(function(err){
-                throw err;
-            })
-        }).then(function(committed){
-            resolve(committed);
-        }).catch(function(err){
-            reject(err);
-        })
     })
 };
 
