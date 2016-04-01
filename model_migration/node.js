@@ -727,6 +727,7 @@ Node.getChangeSet2 = function(gid, deltaData){
  * @param revision
  * @returns {*}
  */
+
 Node.generateNodeInfo = function(deltaArray, uid, gid, revision){
     var thumbnailBucketName = config.S3.minionBucket;
 
