@@ -67,16 +67,17 @@ module.exports = function(connection){
         })
     };
 
-    Group.commitApply2 = function(group, revision, commitNodeInfo, transaction){
+    Group.commitApply2 = function(group, revision, commitNodeInfo, countAlbum, countPhoto, usageStorage, transaction){
         return new Promise(function(resolve, reject){
             Group.createDeltaWithTransaction(group, revision, commitNodeInfo, transaction).then(function(delta){
                 return group.update({
+		    countPhoto: group.countPhoto += countPhoto,
+		    countAlbum: group.countAlbum += countAlbum,
+		    usageStorage: group.usageStorage += usageStorage,
                     revision: revision
                 }, {transaction : transaction}).then(function(){
                     resolve();
-                }).catch(function(err){
-                    reject(err);
-                })
+                });
             }).catch(function(err){
                 reject(err);
             })
