@@ -131,6 +131,24 @@ module.exports = function(connection){
         return BUCKET_INFO + "/" + uid + "/" + Date.now() + ".jpg";
     };
 
+        
+    User.commitApply = function(user, addedPhoto, deletedPhoto, countAddedFileSize, transaction){
+	return new Promise(function(resolve, reject){
+	    console.log("in");
+	    return user.update({
+		countAddPhoto : user.countAddPhoto + addedPhoto,
+		countDeletedPhoto : user.countDeletedPhoto + deletedPhoto,
+		usageStorage : user.usageStorage + countAddedFileSize
+	    }, {transaction : transaction}).then(function(){
+		resolve();
+	    });
+	}).catch(function(err){
+	    reject(err);
+	});
+    };
+
+
+
     return User;
 };
 

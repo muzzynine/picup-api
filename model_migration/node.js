@@ -764,7 +764,7 @@ Node.generateNodeInfo = function(deltaArray, uid, gid, revision){
 
        else if(nodeInfo.presence === Sync.PRESENCE_DELETE) {
            node = new Node(null, gid, nodeInfo.relPath, nodeInfo.kind,
-               revision, Sync.PRESENCE_DELETE, null, null, null, null, null, null, Date.now());
+               revision, Sync.PRESENCE_DELETE, null, null, null, null, null, nodeInfo.exif, Date.now());
        }
        nodes.push(node);
 
