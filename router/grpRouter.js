@@ -346,7 +346,7 @@ router.post('/:gid/name', function (req, res) {
  * @apiError 400 WrongParameter 파라미터가 잘못되었음
  * @apiError 401 Unauthorized API 호출 권한이 없음
  * @apiError 403 Forbidden 인증 실패
- * @apiError 404 NotExistResource 델타를 요청하였으나 그룹 혹은 델타가 없음
+ * @apiError 404 NotExistResource 그룹이 없음
  * @apiError 500 Internal 서버 오류
  *
  * @apiPermission picup-user
