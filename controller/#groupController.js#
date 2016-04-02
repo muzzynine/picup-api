@@ -299,8 +299,6 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 	    }
 	    node.incrementRevision();
 	});
-
-	console.log("pass count update");
 		
         User.getGroup(user, gid).then(function (group) {
             if (newRevision % 2 !== 1) {
@@ -313,8 +311,6 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
                 });
             }
 	}).spread(function(toCommitNodeInfo, group){
-	    console.log("start commit apply");
-	    
             return Connection.transaction(function(t){
 		return User.getGroup(user, group.id).then(function(verifiedGroup){
                     if(oldRevision !== group.revision){
