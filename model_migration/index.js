@@ -9,7 +9,6 @@ var logger = require('../lib/logger');
 var log = bunyan.getLogger('DatabaseConnectLogger');
 var _ = require('lodash');
 
-
 Dynamo.AWS.config.update({
     accessKeyId: 'AKIAIS2NL7ODIW22FN7A',
     secretAccessKey: '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',
@@ -19,10 +18,9 @@ Dynamo.AWS.config.update({
 var nodeMeta = require('./nodeMeta');
 var nodeDelta = require('./nodeDelta');
 
-
 var connection = new Sequelize(config.DATABASE, config.USERNAME, config.PASSWORD, {
-    host: config.HOST,
-    port: config.PORT,
+    host : config.HOST,
+    port : config.PORT,
     dialect: "mysql",
     pool: {
         max: 5,
@@ -32,35 +30,32 @@ var connection = new Sequelize(config.DATABASE, config.USERNAME, config.PASSWORD
     logging: false
 });
 
-log.info("index#Database(RDBMS)/(NOSQL) connected");
-
+log.info("index#Database(RDBMS/NOSQL) connected");
 
 var models = [
-    'delta',
-    'group',
-    'user',
-    'auth',
-    'accessToken',
     'client',
-    'pushRegistration'
+    'delta',
+    'accessToken',
+    'group',
+    'pushRegistration',
+    'user',
+    'auth'
 ];
 
-
-_.forEach(models, function(model){
+models.forEach(function(model){
     module.exports[model] = connection.import(__dirname + '/' + model);
 });
 
 (function(m){
     m.user.belongsToMany(m.group, {through: 'UserGroup'});
-    m.user.hasOne(m.pushRegistration);
-    m.user.belongsTo(m.auth);
+    m.user.hasOne(m.pushRegistration, {onDelete: 'CASCADE'});
+    m.user.hasOne(m.auth, {onDelete : 'CASCADE'});
     m.group.belongsToMany(m.user, {through: 'UserGroup'});
-    m.group.hasMany(m.delta, {as : 'Deltas'});
-    m.auth.hasOne(m.user);
-    m.auth.belongsTo(m.accessToken);
-    m.auth.belongsTo(m.client);
-    m.accessToken.hasOne(m.auth);
-    log.info("index#Database(RDBMS) association set completed");
+    m.group.hasMany(m.delta, {as: 'Deltas'});
+    m.auth.belongsTo(m.user, {onDelete : 'CASCADE'});
+    m.auth.hasOne(m.accessToken, {onDelete : 'CASCADE'});
+    m.auth.hasOne(m.client, {onDelete : 'CASCADE'});
+    m.accessToken.belongsTo(m.auth, {onDelete : 'CASCADE'});
 })(module.exports);
 
 connection.sync();
