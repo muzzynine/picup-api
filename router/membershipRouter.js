@@ -47,8 +47,15 @@ router.get('/profile', function (req, res) {
             group: profile.group
         });
     }).catch(function(err){
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#getMyProfile", {err:err}, {user : user.id}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
+
     });
 });
 
@@ -85,8 +92,14 @@ router.get('/:uid/profile', function (req, res) {
             group: user.group
         });
     }).catch(function(err){
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#getProfile", {err:err}, {user : uid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
@@ -121,9 +134,14 @@ router.get('/:uid/profile/s3path', function (req, res) {
             profile_s3path : path
         });
     }).catch(function(err){
-        log.error("grpRouter#getUserProfilePath", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#getUserProfilePath", {err:err}, {user : user.id}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
@@ -164,9 +182,14 @@ router.post('/:uid/profile', function (req, res) {
             profile_s3path: user.profile_path
         });
     }).catch(function(err){
-        log.error("grpRouter#setProfile", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#setProfile", {err:err}, {user : user.id}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
