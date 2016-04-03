@@ -36,8 +36,10 @@ var createGroup = function(user, group_name, group_color, db){
         }).then(function(group){
             resolve(group);
         }).catch(function(err){
-            log.error("GroupController#createGroup/DB(RDBMS) transaction failed", {err :err});
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         });
     });
 };
@@ -72,7 +74,6 @@ var getGroup = function(user, gid, db){
  */
 var getGroupMember = function(user, gid, db, fn){
     return new Promise(function(resolve, reject){
-	
 	var User = db.user;
 	var Group = db.group;
 
@@ -81,10 +82,12 @@ var getGroupMember = function(user, gid, db, fn){
 		resolve(profiles)
             })
 	}).catch(function(err){
-            log.error("GroupController#getGroupMember", {err :err});
-	    reject(err)
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
 	});
-    })
+    });
 };
 
 /**
@@ -105,8 +108,10 @@ var updateGroupName = function(user, gid, newName, db){
                 resolve(chgrp);
             })
         }).catch(function(err){
-            log.error("GroupController#updateGroupName", {err :err});
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         });
     })
 };
@@ -129,11 +134,12 @@ var addGroupMember = function(user, gid, db){
                     uid : user.id,
                     gid : group.id
                 });
-            }).catch(function(err){
-                throw AppError.throwAppError(500);
             })
         }).catch(function(err){
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         })
     })
 };
@@ -157,62 +163,16 @@ var deleteGroupMember = function(user, gid, db){
                 });
             });
         }).catch(function(err){
-            log.error("GroupController#deleteGroupMember", {err:err});
-            reject(err);
-        });
-    });
-};
-
-var commit = function(user, gid, revision, deltaArray, db, fn){
-    return new Promise(function(resolve, reject){
-        /*
-         * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
-         * s3 storage에 있는지 확인함.
-         * add, replace의 노드들을 확인해야함
-         */
-        var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
-        awsS3.checkExistObjects(nodeInfo, function(err, needBlocks){
-            if(err){
-                log.error("GroupController#commit/Remote AWS S3 Request failed", {err:err});
-                return reject(err);
-            }
-            /* originConfirmList는 원본 파일이 s3에 존재하는 노드 리스트이다.
-             * 썸네일 또한 S3에 존재하는 것을 보장하기 위하여, originConfirmList의 썸네일들이 s3에 존재하는지 확인한다. */
-            var originConfirmList = _.difference(nodeInfo, needBlocks);
-
-            /* 원본이 존재하는 노드들에 대해, 썸네일 또한 s3에 존재하는지 확인한다. */
-
-            awsS3.checkThumbExistObjects(originConfirmList, function(err, notExist){
-                if(err){
-                    log.error("GroupController#commit/Remote AWS S3 Request failed", {err:err});
-                    return reject(err);
-                }
-
-
-                /*
-                 * 커밋 대상은, S3에 원본과 썸네일까지 존재하는 노드들이다.
-                 * 모두 존재하는 노드들에 대해서는 커밋을 진행하고,
-                 * 원본과 썸네일이 존재하지 않는 노드에 대해서는 needBlocks에 리턴하고,
-                 * 원본은 존재하나 아직 썸네일이 존재하지 않는 노드에 대해서는, 썸네일이 만들어지는 과정이라 가정하고 따로 알리지 않는다.
-                 * 이런 처리가 가능한 이유는 예상하지 못한 오류로 썸네일이 만들어지지 못하더라도, 커밋을 방지할 수 있으며
-                 * 클라이언트 입장에서는 커밋 처리가 안되는 노드이기 때문에, 능동적으로 판단하여 클라이언트 레벨에서 처리할 수 있도록 한다.
-                 */
-                var commitList = _.difference(originConfirmList, notExist);
-
-                commitInternal(user, gid, revision, commitList, db, function(err, commitResult){
-                    if(err){
-                        return reject(err);
-                    }
-                    return fn(null, needBlocks, commitResult);
-                });
-            });
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         });
     });
 };
 
 var commit2 = function(user, gid, revision, deltaArray, db){
     return new Promise(function(resolve, reject){
-	console.log("in commit2");
         /*
          * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
          * s3 storage에 있는지 확인함.
@@ -244,8 +204,10 @@ var commit2 = function(user, gid, revision, deltaArray, db){
                 });
             });
         }).catch(function(err){
-	    log.error("GroupController#commit", {err : err});
-	    reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
 	});
     });
 };
@@ -253,8 +215,6 @@ var commit2 = function(user, gid, revision, deltaArray, db){
 
 var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
     return new Promise(function(resolve, reject){
-	console.log("start commit");
-	
 	var Connection = db.connection;
         var User = db.user;
         var Group = db.group;
@@ -277,7 +237,6 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 	var countDeletedTotalFileSize = 0;
 
 	nodeInfo.forEach(function(node){
-	    console.log(node.exif);
 	    if(node.presence === Sync.PRESENCE_ADD){
 		if(node.kind === Sync.KIND_DIR){
 		    countCommitAddAlbum++;
@@ -300,8 +259,6 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 	    node.incrementRevision();
 	});
 
-	console.log("pass count update");
-		
         User.getGroup(user, gid).then(function (group) {
             if (newRevision % 2 !== 1) {
                 return longCommit(group, newRevision, nodeInfo, db).then(function (toCommitNodeInfo) {
@@ -313,24 +270,18 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
                 });
             }
 	}).spread(function(toCommitNodeInfo, group){
-	    console.log("start commit apply");
-	    
             return Connection.transaction(function(t){
 		return User.getGroup(user, group.id).then(function(verifiedGroup){
                     if(oldRevision !== group.revision){
-			throw AppError.throwAppError(400);
+			throw AppError.throwAppError(400, "In transaction, revision in request revision is not equal to groups latest revision");
                     }
 
 		    var countAlbum = countCommitAddAlbum - countCommitDelAlbum;
 		    var countPhoto = countCommitAddPhoto - countCommitDelPhoto;
 		    var usageStorage = countAddedTotalFileSize - countDeletedTotalFileSize;
 
-		    console.log("commitApply2");
-		    
                     return Group.commitApply2(group, newRevision, toCommitNodeInfo, countAlbum, countPhoto, usageStorage, t).then(function(){
-			console.log("commitApply");
 			return User.commitApply(user, countCommitAddPhoto, countCommitDelPhoto, countAddedTotalFileSize, t).then(function(){
-			    console.log("success");
 			    return {
 				revision: newRevision,
 				group: verifiedGroup,
@@ -339,13 +290,15 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 			});
                     })
 		}).catch(function(err){
-                    throw err;
+		    if(err.isAppError){
+			throw err;
+		    }
+		    throw AppError.throwAppError(500, err.toString());
 		});
 	    }).then(function(committed){
 		return committed;
-	    })		
+	    });	
 	}).then(function(committedInfo){
-	    console.log("commit completed");
             return Group.getMemberList(gid).then(function (users) {
 		var uids = [];
                 users.forEach(function (user) {
@@ -362,7 +315,10 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 		});
 	    });
         }).catch(function (err) {
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));;
         });
     })
 };
@@ -392,9 +348,12 @@ var longCommit = function(group, revision, commitChunk, db){
 		});
 	    });	    
         }).catch(function(err){
-            reject(err);
-        })
-    })
+	    if(err.isAppError){
+		return reject(err);
+	    } 
+	    reject(AppError.throwAppError(500, err.toString()));
+        });
+    });
 };
 
 var shortCommit = function(group, revision, commitChunk){
@@ -408,16 +367,13 @@ var shortCommit = function(group, revision, commitChunk){
 
             resolve(savedNodeIds);
         }).catch(function(err){
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         })
     })
 };
-
-var commitApply = function(user, group, revision, commitInfo, countCommitAddPhoto, countCommitAddAlbum, countTotalFileSize, db){
-    return new Promise(function(resolve, reject){
-    })
-};
-
 
 
 var update = function(user, gid, startRev, endRev, db) {
@@ -428,11 +384,11 @@ var update = function(user, gid, startRev, endRev, db) {
 
 	//Start revision에 0이 올 경우 !startRev에 포함되므로, null임을 체크한다.
         if (startRev === null || !endRev) {
-            return reject(AppError.throwAppError(400));
+            return reject(AppError.throwAppError(400, "Start revision or end revision is null. is wrong argument"));
         }
 
         if (startRev > endRev) {
-            return reject(AppError.throwAppError(400));
+            return reject(AppError.throwAppError(400, "End revision is grater than start revision. is wrong argument"));
         }
 
         // 그룹 확인보다 같은 경우의 fast return이 먼저 있다. 인지하고 있어야 한다.
@@ -446,8 +402,9 @@ var update = function(user, gid, startRev, endRev, db) {
 
         User.getGroup(user, gid).then(function(group){
             if (endRev > group.revision) {
-                return reject(AppError.throwAppError(400));
+                throw AppError.throwAppError(400, "end revision is grater than groups latest revision. is wrong argument");
             }
+	    
             var src = parseInt(startRev);
             var dst = parseInt(endRev);
 
@@ -455,8 +412,7 @@ var update = function(user, gid, startRev, endRev, db) {
             try {
                 var traversalInfo = Sync.getDeltaList(src, dst);
             } catch (err) {
-                log.error("GroupController#update/getDeltaList compute error", {err: err});
-                return reject(AppError.throwAppError(500));
+                throw AppError.throwAppError(500, err.toString());
             }
             return Group.getDeltaSet(group, traversalInfo).then(function(deltaSet){
                 return Node.getChangeSetBatch2(group.id, deltaSet.backward).then(function(changeSetBackward){
@@ -464,7 +420,7 @@ var update = function(user, gid, startRev, endRev, db) {
                         try {
                             var result = Sync.generateDifferenceUpdateData(changeSetBackward, changeSetForward);
                         } catch(err){
-                            throw AppError.throwAppError(500);
+                            throw AppError.throwAppError(500, err.toString());
                         }
                         resolve({
                             gid: group.id,
@@ -475,9 +431,12 @@ var update = function(user, gid, startRev, endRev, db) {
                 })
             })
         }).catch(function(err){
-            reject(err);
-        })
-    })
+	    if(err.isAppError){
+		reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
+        });
+    });
 };
 
 var getInviteUrl = function(user, gid, db){
@@ -486,7 +445,7 @@ var getInviteUrl = function(user, gid, db){
             var Group = db.group;
             var inviteUrl = Group.getInviteUrl(user.id, gid);
         } catch(err){
-            return reject(AppError.throwAppError(500));
+            return reject(AppError.throwAppError(500, err.toString()));
         }
         resolve(inviteUrl);
     });
@@ -499,7 +458,6 @@ exports.updateGroupName = updateGroupName;
 exports.addGroupMember = addGroupMember;
 exports.deleteGroupMember = deleteGroupMember;
 exports.getInviteUrl = getInviteUrl;
-exports.commit = commit;
 exports.update = update;
 exports.commitInternal2 = commitInternal2
 exports.commit2 = commit2;

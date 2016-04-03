@@ -61,9 +61,15 @@ router.post('/', function (req, res) {
             group_color : group.color
         });
     }).catch(function(err){
-        log.error("grpRouter#createGroup", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#createGroup", {err:err}, {user : user.id}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
+
     });
 });
 
@@ -114,9 +120,15 @@ router.get('/:gid', function (req, res) {
             group_color: group.color
         });
     }).catch(function(err){
-        log.error("grpRouter#getGroup", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#getGroup", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
+
     });
 });
 
@@ -162,9 +174,14 @@ router.post('/:gid', function (req, res) {
             needBlocks : result[0]
         });
     }).catch(function(err){
-	log.error("grpRouter#commit", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#commit", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
@@ -201,9 +218,15 @@ router.post('/:gid/member', function (req, res) {
             group_id : result.gid
         });
     }).catch(function(err){
-        log.error("grpRouter#addGroupMember", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#addGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
+
     });
 });
 
@@ -241,9 +264,14 @@ router.get('/:gid/members', function (req, res) {
             user_info: profiles.user_info
         });
     }).catch(function(err){
-        log.error("grpRouter#getGroupMember", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#getGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
@@ -286,8 +314,15 @@ router.get('/:gid/delta', function (req, res) {
             delta: result.delta
         });
     }).catch(function(err){
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#update", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
+
     });
 });
 
@@ -327,9 +362,14 @@ router.post('/:gid/name', function (req, res) {
             group_name : group.name
         });
     }).catch(function(err){
-        log.error("grpRouter#updateGroupName", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#modifyGroupName", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
@@ -367,9 +407,14 @@ router.delete('/:gid', function (req, res) {
             gid : result.gid
         });
     }).catch(function(err){
-        log.error("grpRouter#deleteGroupName", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#deleteGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 
@@ -401,9 +446,14 @@ router.get('/:gid/invite', function (req, res) {
             invite_url : url
         });
     }).catch(function(err){
-        log.error("grpRouter#getInviteUrl", {err:err}, {user : user.id});
-        res.status(err.errorCode);
-        res.json(err);
+	log.error("#getInviteUrl", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	if(err.isAppError){
+	    res.status(err.errorCode);
+	    res.json(err);
+	} else {
+	    res.status(500);
+	    res.json({});
+	}
     });
 });
 

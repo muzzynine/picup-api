@@ -24,10 +24,12 @@ var getMyProfile = function(user, db){
                 resolve(result);
             });
         }).catch(function(err){
-            log.error("MembershipController#getMyProfile", {err:err});
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
         });
-    })
+    });
 };
 
 var getProfile = function(uid, db){
@@ -45,8 +47,10 @@ var getProfile = function(uid, db){
                 resolve(result);
             });
         }).catch(function(err){
-            log.error("MembershipController#getProfile", {err:err});
-            reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
         });
     });
 };
@@ -57,7 +61,7 @@ var getUserProfilePath = function(user, db){
             var User = db.user;
             var s3path = User.getProfileS3path(user.id);
         } catch(err){
-            return reject(AppError.throwAppError(500));
+            throw AppError.throwAppError(500, err.toString());
         }
         resolve(s3path);
     })
@@ -70,10 +74,12 @@ var setProfile = function(user, nickname, s3path, db){
         User.setProfile(user, nickname, s3path).then(function(){
             resolve(user);
         }).catch(function(err){
-            log.error("MembershipController#setProfile", {err:err});
-            reject(AppError.throwAppError(500));
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
         });
-    })
+    });
 };
 
 exports.getMyProfile = getMyProfile;
