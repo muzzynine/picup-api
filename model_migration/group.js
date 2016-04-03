@@ -33,8 +33,10 @@ module.exports = function(connection){
             }, {transaction: transaction}).then(function(group){
                 resolve(group);
             }).catch(function(err){
-                log.error("Group#createGroup/Internal Database(RDBMS) error", {err :err});
-                reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    return reject(err);
+		}
+                reject(AppError.throwAppError(500, err.toString()));
             });
         })
     };
@@ -48,8 +50,10 @@ module.exports = function(connection){
             }, {transaction : transaction}).then(function(delta){
                 resolve(delta);
             }).catch(function(err){
-                log.error("Group#createDeltaWithTransaction/Internal Database(RDBMS) error", {err :err});
-                reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    return reject(err);
+		}
+		reject(AppError.throwAppError(500, err.toString()));
             });
         })
     };
@@ -79,21 +83,26 @@ module.exports = function(connection){
                     resolve();
                 });
             }).catch(function(err){
-                reject(err);
-            })
-        })
+		if(err.isAppError){
+		    return reject(err);
+		}
+		reject(AppError.throwAppError(500, err.toString()));
+            });
+        });
     };
 
     Group.findGroupById = function(gid){
         return new Promise(function(resolve, reject){
             return Group.findById(gid).then(function(group){
                 if(!group){
-                    return reject(AppError.throwAppError(404));
+                    throw AppError.throwAppError(404, "Not exist group");
                 }
                 resolve(group);
             }).catch(function(err){
-                log.error("Group#findGroupById/Internal Database(RDBMS) error", {err :err});
-                return reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    return reject(err);
+		}
+                reject(AppError.throwAppError(500, err.toString()));
             });
 
         })
@@ -107,10 +116,12 @@ module.exports = function(connection){
 		group.group_name = newName
                 resolve(group);
             }).catch(function(err){
-                log.error("Group#updateGroupName/Internal Database(RDBMS) error", {err :err});
-                reject(AppError.throwAppError(500));
-            })
-        })
+		if(err.isAppError){
+		    return reject(err);
+		}
+                reject(AppError.throwAppError(500, err.toString()));
+            });
+        });
     };
 
     Group.getMemberList = function(gid){
@@ -118,14 +129,14 @@ module.exports = function(connection){
             return Group.findGroupById(gid).then(function(group){
                 group.getUsers().then(function(users){
                     resolve(users);
-                }).catch(function(err){
-                    reject(AppError.throwAppError(500));
-                })
+                });
             }).catch(function(err){
-                log.error("Group#getMemberList/Internal Database(RDBMS) error", {err :err});
-                reject(AppError.throwAppError(500));
-            })
-        })
+		if(err.isAppError){
+		    return reject(err);
+		}
+                reject(AppError.throwAppError(500, err.toString()));
+            });
+	});
     };
 
     Group.addMember = function(gid, user, fn){
@@ -171,7 +182,7 @@ module.exports = function(connection){
     Group.getMemberProfile = function(group){
         return new Promise(function(resolve, reject){
             //권한 체크 안함
-            return group.getUsers().then(function(users){
+            group.getUsers().then(function(users){
                 var result = {
                     count : 0,
                     user_info : []
@@ -186,10 +197,12 @@ module.exports = function(connection){
                 });
                 resolve(result);
             }).catch(function(err){
-                log.error("Group#getMemberProfile/Internal Database(RDBMS) error", {err :err});
-                reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    return reject(err);
+		}
+                reject(AppError.throwAppError(500, err.toString()));
             });
-        })
+        });
     };
 
     Group.getDeltaByGidAndRevision = function(gid, rev, fn){
@@ -223,8 +236,7 @@ module.exports = function(connection){
                     }
                 }).then(function (backwards) {
                     if (backwards.length !== traversalInfo.backward.length) {
-                        log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err: err}, {group: group.id});
-                        return reject(AppError.throwAppError(500));
+			throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
                     }
 
                     //Delta serialize (JSON -> Array)
@@ -240,8 +252,7 @@ module.exports = function(connection){
                         }
                     }).then(function (forwards) {
                         if (forwards.length !== traversalInfo.forward.length) {
-                            log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err: err}, {group: group.id});
-                            return reject(AppError.throwAppError(500));
+			    throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
                         }
 
                         //Delta serialize (JSON -> Array)
@@ -253,14 +264,14 @@ module.exports = function(connection){
                             backward: backwards,
                             forward: forwards
                         });
-                    }).catch(function (err) {
-                        reject(AppError.throwAppError(500));
                     });
                 }).catch(function (err) {
-                    log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err: err});
-                    reject(AppError.throwAppError(500));
-                })
-
+		    if(err.isAppError){
+			return reject(err);
+		    }
+		    reject(AppError.throwAppError(500, err.toString()));
+                });
+		
             } else if (traversalInfo.backward.length > 0 && !(traversalInfo.forward.length > 0)) {
                 group.getDeltas({
                     where: {
@@ -270,8 +281,7 @@ module.exports = function(connection){
                     }
                 }).then(function (backwards) {
                     if (backwards.length !== traversalInfo.backward.length) {
-                        log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err: err}, {group: group.id});
-                        return reject(AppError.throwAppError(500));
+			throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
                     }
 
                     backwards.forEach(function (bDelta) {
@@ -284,10 +294,11 @@ module.exports = function(connection){
                     });
 
                 }).catch(function (err) {
-                    log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err: err});
-                    reject(AppError.throwAppError(500));
-                })
-
+		    if(err.isAppError){
+			return reject(err);
+		    }
+		    reject(AppError.throwAppError(500, err.toString()));
+                });
             } else {
                 group.getDeltas({
                     where: {
@@ -297,8 +308,7 @@ module.exports = function(connection){
                     }
                 }).then(function (forwards) {
                     if (forwards.length !== traversalInfo.forward.length) {
-                        log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err: err}, {group: group.id});
-                        return reject(AppError.throwAppError(500));
+			throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
                     }
 
                     forwards.forEach(function (fDelta) {
@@ -310,11 +320,13 @@ module.exports = function(connection){
                         forward: forwards
                     });
                 }).catch(function (err) {
-                    log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err: err});
-                    reject(AppError.throwAppError(500));
-                })
+		    if(err.isAppError){
+			return reject(err);
+		    }
+		    reject(AppError.throwAppError(500, err.toString()));
+                });
             }
-        })
+        });
     };
 
 

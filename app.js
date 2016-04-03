@@ -1,6 +1,7 @@
 /**
  * Created by impyeong-gang on 12/7/15.
  */
+
 var express = require('express');
 var bodyParser = require('body-parser');
 var config = require('./config/config');
@@ -11,6 +12,8 @@ var session = require('express-session');
 var logging = require('./lib/logger');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('MainLogger');
+var AppError = require('./lib/appError');
+
 
 var app = express();
 
