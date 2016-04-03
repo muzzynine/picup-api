@@ -48,14 +48,15 @@ NodeMeta.getNodeMetaByIdsBatch = function(metaKeyArray){
                 if(result.isFulfilled()){
                     found = _.concat(found, result.value());
                 } else {
-		    console.log(result.reason());
-                    return reject(AppError.throwAppError(500));
+                    throw result.reason();
                 }
             });
             resolve(found);
         }).catch(function(err){
-            console.log(err);
-            reject(AppError.throwAppError(500));
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         });
     });
 };
@@ -73,11 +74,10 @@ NodeMeta.getNodeMetaByGidAndRelPath = function(gid, relPath){
     return new Promise(function(resolve, reject){
         NodeMeta.queryOne('gid').eq(gid).where('relPath').eq(relPath).exec(function(err, nodeMeta){
             if(err){
-                log.error("NodeMeta#findNodeByGidAndRelPath/DB(NOSQL) Internal error", {err :err});
-                return reject(AppError.throwAppError(500));
+                return reject(AppError.throwAppError(500, err.toString()));
             }
             if(!nodeMeta){
-                return reject(AppError.throwAppError(404));
+                return reject(AppError.throwAppError(404, "Not exist nodeMeta"));
             }
             resolve(nodeMeta);
         });
@@ -98,13 +98,16 @@ NodeMeta.getNodeMetaByGidAndRelPathBatch = function(nodeInfos){
                 if(result.isFulfilled()){
                     found.push(result.value());
                 } else {
-		    console.log(result.reason());
-		    return reject(AppError.throwAppError(500));
+		    throw result.reason();
                 }
             })
             resolve(found);
         }).catch(function(err){
-            reject(AppError.throwAppError(500));
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
+
         })
     })
 };
@@ -139,13 +142,15 @@ NodeMeta.addNodeMetaBatch = function(nodeArray){
 	Promise.settle(jobs).then(function(results){
 	    _.forEach(results, function(result){
                 if(!result.isFulfilled()){
-                    return reject(AppError.throwAppError(500));
+                    throw result.reason();
                 }
             });
             resolve(nodeMetaArray);
         }).catch(function(err){
-	    console.log(err)
-            reject(AppError.throwAppError(500));
+	    if(err.isAppError){
+		return reject(err);
+	    }
+            reject(AppError.throwAppError(500, err.toString()));
         });
 	
     });

@@ -102,12 +102,15 @@ NodeDelta.getNodeDeltaByNidAndRevBatch = function(nodesArray){
 		if(result.isFulfilled()){
 		    found = _.concat(found, result.value());
 		} else {
-		    return reject(AppError.throwAppError(500));
+		    throw result.reason();
 		}
 	    });
 	    resolve(found);
 	}).catch(function(err){
-	    reject(AppError.throwAppError(500));
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
 	});
     });
 };
@@ -171,6 +174,7 @@ NodeDelta.getNodeDeltaByBetweenRevBatch = function(nodeMetas, src, dst){
 
 NodeDelta.addNodeDeltaBatch = function(nodeArray){
     return new Promise(function(resolve, reject){
+
         var nodeDeltaArray = [];
 
         _.forEach(nodeArray, function(node){
@@ -198,12 +202,15 @@ NodeDelta.addNodeDeltaBatch = function(nodeArray){
         Promise.settle(jobs).then(function(results){
             _.forEach(results, function(result){
                 if(!result.isFulfilled()){
-                    return reject(AppError.throwAppError(500));
+                    throw result.reason();
                 }
             });
             resolve(nodeDeltaArray);
         }).catch(function(err){
-            reject(AppError.throwAppError(500));
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
         });
     });
 };

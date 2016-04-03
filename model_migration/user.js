@@ -32,12 +32,14 @@ module.exports = function(connection){
                 }
             }).then(function(user){
                 if(!user){
-                    return reject(AppError.throwAppError(404));
+		    throw AppError.throwAppError(404, "Not exist user");
                 }
                 resolve(user);
             }).catch(function(err){
-                log.error("User#findUserById/DB(RDBMS) Internal error", {err :err});
-                reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    return reject(err);
+		}
+		reject(AppError.throwAppError(500, err.toString()));
             });
         })
     };
@@ -84,7 +86,7 @@ module.exports = function(connection){
 
     User.getGroupList = function(user){
         return new Promise(function(resolve, reject){
-            return user.getGroups().then(function(groups){
+            user.getGroups().then(function(groups){
                 var groupIds = [];
 
                 groups.forEach(function(group){
@@ -93,24 +95,28 @@ module.exports = function(connection){
 
                 resolve(groupIds);
             }).catch(function(err){
-                log.error("User#getGroupList/DB(RDBMS) Internal error", {err :err});
-                reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    return reject(err);
+		}
+		reject(AppError.throwAppError(500, err.toString()));
             });
         });
     };
 
     User.getAuthInfo = function(user){
         return new Promise(function(resolve, reject){
-            return user.getAuth().then(function(auth){
+            user.getAuth().then(function(auth){
                 if(!auth){
-                    return reject(AppError.throwAppError(404));
+                    throw AppError.throwAppError(404, "not exist auth info");
                 }
-                return resolve(auth);
+                resolve(auth);
             }).catch(function(err){
-                log.error("User#getAuthInfo/DB(RDBMS) Internal error", {err :err});
-                return reject(AppError.throwAppError(500));
-            })
-        })
+		if(err.isAppError){
+		    return reject(err);
+		}
+		reject(AppError.throwAppError(500, err.toString()));
+            });
+        });
     }
 
     User.setProfile = function(user, nickname, profilePath){
@@ -121,10 +127,12 @@ module.exports = function(connection){
             }).then(function(){
                 resolve();
             }).catch(function(err){
-                log.error("User#setProfile/DB(RDBMS) Internal error", {err :err});
-                reject(AppError.throwAppError(500));
-            })
-        })
+		if(err.isAppError){
+		    return reject(err);
+		}
+		reject(AppError.throwAppError(500, err.toString()));
+            });
+        });
     };
 
     User.getProfileS3path = function(uid){
@@ -134,7 +142,6 @@ module.exports = function(connection){
         
     User.commitApply = function(user, addedPhoto, deletedPhoto, countAddedFileSize, transaction){
 	return new Promise(function(resolve, reject){
-	    console.log("in");
 	    return user.update({
 		countAddPhoto : user.countAddPhoto + addedPhoto,
 		countDeletedPhoto : user.countDeletedPhoto + deletedPhoto,
@@ -143,7 +150,10 @@ module.exports = function(connection){
 		resolve();
 	    });
 	}).catch(function(err){
-	    reject(err);
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
 	});
     };
 
