@@ -75,9 +75,21 @@ module.exports = {
         SCHEME : {
             id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true},
             auth_id : {type : Sequelize.STRING(40), allowNull: false},
-            auth_type : { type: Sequelize.ENUM('kakao', 'facebook'), allowNull: false }
+            auth_type : { type: Sequelize.ENUM('kakao', 'facebook'), allowNull: false },
+	    isBan : {type : Sequelize.BOOLEAN, defaultValue: false, allowNull: false}
         }
     },
+
+    BAN_INFO : {
+	TABLE : "banInfo",
+	SCHEME : {
+	    id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true},
+	    banReason : { type : Sequelize.STRING(100), defaultValue: "", allowNull: false},
+	    banStartDate : { type : Sequelize.BIGINT, allowNull : false},
+	    banDuration : { type : Sequelize.BIGINT, allowNull : false}
+	}
+    },
+
 
     ACCESS_TOKEN : {
         TABLE : "accessToken",
