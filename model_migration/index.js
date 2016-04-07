@@ -7,7 +7,7 @@ var Dynamo = require('dynamoose');
 var bunyan = require('bunyan');
 var logger = require('../lib/logger');
 var log = bunyan.getLogger('DatabaseConnectLogger');
-var _ = require('lodash');
+
 
 Dynamo.AWS.config.update({
     accessKeyId: 'AKIAIS2NL7ODIW22FN7A',
@@ -39,7 +39,8 @@ var models = [
     'group',
     'pushRegistration',
     'user',
-    'auth'
+    'auth',
+    'ban'
 ];
 
 models.forEach(function(model){
@@ -55,8 +56,11 @@ models.forEach(function(model){
     m.auth.belongsTo(m.user, {onDelete : 'CASCADE'});
     m.auth.hasOne(m.accessToken, {onDelete : 'CASCADE'});
     m.auth.hasOne(m.client, {onDelete : 'CASCADE'});
+    m.auth.hasMany(m.ban, {onDelete : 'CASCADE'});
     m.accessToken.belongsTo(m.auth, {onDelete : 'CASCADE'});
+    log.info("index#Database(RDBMS) association set completed");
 })(module.exports);
+
 
 connection.sync();
 log.info("index#Database sync now");
