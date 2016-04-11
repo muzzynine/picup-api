@@ -163,8 +163,9 @@ router.post('/:gid', function (req, res) {
     var deltaArray = req.body.delta;
 
     var db = req.app.get('models');
+    var amqp = req.app.get('amqp');
 
-    groupController.commit2(user, gid, revision, deltaArray, db).then(function(result){
+    groupController.commit2(user, gid, revision, deltaArray, db, amqp).then(function(result){
         res.status(200);
         res.json({
             uid: result[1].uid,

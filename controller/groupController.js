@@ -171,13 +171,14 @@ var deleteGroupMember = function(user, gid, db){
     });
 };
 
-var commit2 = function(user, gid, revision, deltaArray, db){
+var commit2 = function(user, gid, revision, deltaArray, db, amqp){
     return new Promise(function(resolve, reject){
         /*
          * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
          * s3 storage에 있는지 확인함.
          * add, replace의 노드들을 확인해야함
          */
+	var Group = db.group;
         var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
 
         awsS3.checkExistNodeObjectsBatch(nodeInfo).then(function(needBlocks){
@@ -199,8 +200,34 @@ var commit2 = function(user, gid, revision, deltaArray, db){
                  */
                 var commitList = _.difference(originConfirmList, notExist);
 
-                return commitInternal2(user, gid, revision, commitList, db).then(function(commitResult){
-                    resolve([needBlocks, commitResult]);
+		/* 
+		 * 커밋할 것이 없는 경우 needBlocks와 빈 델타와 함꼐 함수 리턴
+		 */
+
+		if(commitList.length === 0){
+		    return resolve(
+			[
+			    needBlocks,
+			    {
+				uid : user.id,
+				group : gid,
+				revision : revision,
+				delta : []
+			    }
+			]
+		    );
+		}
+		return commitInternal2(user, gid, revision, commitList, db).then(function(commitResult){
+		    return Group.getMemberList(gid).then(function (users) {
+			var uids = [];
+			users.forEach(function (user) {
+			    uids.push(user.id);
+			});
+
+			return amqp.sendCommitMessage(uids, gid).then(function () {
+			    resolve([needBlocks, commitResult]);
+			});
+		    });
                 });
             });
         }).catch(function(err){
@@ -219,15 +246,6 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
         var User = db.user;
         var Group = db.group;
         var newRevision = oldRevision + 1;
-
-        if (nodeInfo.length === 0) {
-            return resolve({
-                uid: user.id,
-                group: gid,
-                revision: oldRevision,
-                delta: []
-            });
-        }
 
 	var countCommitAddPhoto = 0;
 	var countCommitAddAlbum = 0;
@@ -296,24 +314,13 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 		    throw AppError.throwAppError(500, err.toString());
 		});
 	    }).then(function(committed){
-		return committed;
+		return resolve({
+		    uid : user.id,
+		    group : committed.group.id,
+		    revision: committed.revision,
+		    delta: nodeInfo
+		});
 	    });	
-	}).then(function(committedInfo){
-            return Group.getMemberList(gid).then(function (users) {
-		var uids = [];
-                users.forEach(function (user) {
-		    uids.push(user.id);
-		});
-
-		return amqpExchange.sendCommitMessage(uids, gid).then(function (err) {
-		    return resolve({
-			uid: user.id,
-			group: committedInfo.group.id,
-                        revision: committedInfo.revision,
-                        delta: nodeInfo
-                    });
-		});
-	    });
         }).catch(function (err) {
 	    if(err.isAppError){
 		return reject(err);
