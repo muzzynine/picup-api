@@ -540,7 +540,10 @@ Node.getChangeSetBatch2 = function(gid, deltaSet){
     });
 };
 
-
+/*
+ * gid에 해당하는 그룹의 delta정보를 받아 delta정보가 포함하고 있는
+ * 모든 노드정보를 remote db로부터 가져와 이를 반환한다.
+ */
 Node.getChangeSet2 = function(gid, deltaData){
     return new Promise(function(resolve, reject){
 	var uniqNids = _.uniq(_.map(deltaData, 'nid'));
