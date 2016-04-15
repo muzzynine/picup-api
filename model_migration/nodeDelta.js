@@ -172,6 +172,9 @@ NodeDelta.getNodeDeltaByBetweenRevBatch = function(nodeMetas, src, dst){
     })
 };
 
+/*
+ * addNodeDelta를 병렬적으로 일어나도록 한다.
+ */
 NodeDelta.addNodeDeltaBatch = function(nodeArray){
     return new Promise(function(resolve, reject){
 
@@ -225,7 +228,7 @@ NodeDelta.addNodeDelta = function(node){
     return new Promise(function(resolve, reject){
         NodeDelta.get({nid : node.nid, revision : node.revision}, function(err, nodeDelta){
             if(err){
-                return reject(AppError.throwAppError(500));
+                return reject(AppError.throwAppError(500, err.toString()));
             }
             if(!nodeDelta){
                 NodeDelta.create({
@@ -240,8 +243,7 @@ NodeDelta.addNodeDelta = function(node){
                     createdDate : node.createdDate || null
                 }, function(err, created){
                     if(err){
-                        log.error("NodeDelta#addNodeDelta/DB(NOSQL) Internal error", {err :err});
-                        return reject(AppError.throwAppError(500));
+                        return reject(AppError.throwAppError(500, err.toString()));
                     }
                     resolve(created);
                 })
@@ -256,8 +258,7 @@ NodeDelta.addNodeDelta = function(node){
 
                 nodeDelta.save(function(err){
                     if(err){
-                        log.error("NodeDelta#addNodeDelta/DB(NOSQL) Internal error", {err :err});
-                        return reject(AppError.throwAppError(500));
+                        return reject(AppError.throwAppError(500, err.toString()));
                     }
                     resolve(nodeDelta);
                 })

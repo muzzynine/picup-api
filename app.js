@@ -13,21 +13,32 @@ var logging = require('./lib/logger');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('MainLogger');
 var AppError = require('./lib/appError');
-
+var GCMPusher = require('./amqp/amqp');
 
 var app = express();
-
-app.set('models', require('./model_migration'));
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
 
 if(process.env.NODE_ENV == 'development'){
     console.log("Server running Development Mode");
     app.use(require('morgan')('dev'));
 } else if(process.env.NODE_ENV == 'production'){
     console.log("Server running Production Mode");
+    process.on('uncaughtException', function(err){
+	log.fatal("UncaughtExceptionEmit", {err : err.toString()}, {stack : err.stack});
+    });
 }
+
+app.set('models', require('./model_migration'));
+
+GCMPusher.init(app.get('models'));
+GCMPusher.connect();
+
+app.set('amqp', GCMPusher);
+
+
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
+
 
 // 304 disable
 app.disable('etag');

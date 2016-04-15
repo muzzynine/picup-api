@@ -84,7 +84,9 @@ NodeMeta.getNodeMetaByGidAndRelPath = function(gid, relPath){
     })
 };
 
-
+/*
+ * 다수의 getNodeMetaByGidAndRelPath를 병렬적으로 일어나도록 한다.
+ */
 NodeMeta.getNodeMetaByGidAndRelPathBatch = function(nodeInfos){
     return new Promise(function(resolve, reject){
         var jobs = [];
