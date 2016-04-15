@@ -171,24 +171,24 @@ var deleteGroupMember = function(user, gid, db){
     });
 };
 
-var commit2 = function(user, gid, revision, deltaArray, db){
+var commit2 = function(user, gid, revision, deltaArray, db, amqp){
     return new Promise(function(resolve, reject){
         /*
          * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
          * s3 storage에 있는지 확인함.
          * add, replace의 노드들을 확인해야함
          */
+	var Group = db.group;
         var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
 
-        awsS3.checkExistNodeObjectsBatch(nodeInfo).then(function(needBlocks){
+        awsS3.checkExistNodeObjectsBatch(nodeInfo).then(function(originNeedBlocks){
             /* originConfirmList는 원본 파일이 s3에 존재하는 노드 리스트이다.
              * 썸네일 또한 S3에 존재하는 것을 보장하기 위하여, originConfirmList의 썸네일들이 s3에 존재하는지 확인한다. */
-            var originConfirmList = _.difference(nodeInfo, needBlocks);
+            var originConfirmList = _.difference(nodeInfo, originNeedBlocks);
 
             /* 원본이 존재하는 노드들에 대해, 썸네일 또한 s3에 존재하는지 확인한다. */
 
-            return awsS3.checkExistThumbObjectsBatch(originConfirmList).then(function(notExist){
-
+            return awsS3.checkExistThumbObjectsBatch(originConfirmList).then(function(thumbNeedBlocks){
                 /*
                  * 커밋 대상은, S3에 원본과 썸네일까지 존재하는 노드들이다.
                  * 모두 존재하는 노드들에 대해서는 커밋을 진행하고,
@@ -197,10 +197,37 @@ var commit2 = function(user, gid, revision, deltaArray, db){
                  * 이런 처리가 가능한 이유는 예상하지 못한 오류로 썸네일이 만들어지지 못하더라도, 커밋을 방지할 수 있으며
                  * 클라이언트 입장에서는 커밋 처리가 안되는 노드이기 때문에, 능동적으로 판단하여 클라이언트 레벨에서 처리할 수 있도록 한다.
                  */
-                var commitList = _.difference(originConfirmList, notExist);
+                var commitList = _.difference(originConfirmList, thumbNeedBlocks);
+		var needBlocks = _.concat(originNeedBlocks, thumbNeedBlocks);
+		/* 
+		 * 커밋할 것이 없는 경우 needBlocks와 빈 델타와 함꼐 함수 리턴
+		 */
 
-                return commitInternal2(user, gid, revision, commitList, db).then(function(commitResult){
-                    resolve([needBlocks, commitResult]);
+		if(commitList.length === 0){
+		    return resolve(
+			[
+			    needBlocks,
+			    {
+				uid : user.id,
+				group : gid,
+				revision : revision,
+				delta : []
+			    }
+			]
+		    );
+		}
+		
+		return commitInternal2(user, gid, revision, commitList, db).then(function(commitResult){
+		    return Group.getMemberList(gid).then(function (users) {
+			var uids = [];
+			users.forEach(function (user) {
+			    uids.push(user.id);
+			});
+
+			return amqp.sendCommitMessage(uids, gid).then(function () {
+			    resolve([needBlocks, commitResult]);
+			});
+		    });
                 });
             });
         }).catch(function(err){
@@ -213,21 +240,33 @@ var commit2 = function(user, gid, revision, deltaArray, db){
 };
 
 
+/* 
+ * commitInternal
+ * S3에 존재하는 커밋 대상 노드들을 인자로 받아 해당 노드들에 대한 커밋을 진행하고 반영한다.
+ *
+ * 아키텍처 구성상, NOSQL에는 노드정보를, RDBMS에는 그룹, 델타정보를 보관하며 다루기 때문에
+ * DB레벨에서의 트랜잭션은 불가능하다.
+ * 따라서 RDBMS의 최종 커밋 반영에만 트랜잭션을 사용하고, 실패허용적으로 커밋 루틴을 구성하여야 한다.
+ * 
+ * 실패허용을 만족하기 위해 다음과 같은 방법을 쓴다.
+ *  - Presence ADD의 노드를 추가할 때, 노드의 특정 값에 영향을 받지 않는 UUID Node Id를 생성한다.
+ *     Presence ADD의 노드 추가때 마다 Nid가 노드의 특정값에 영향을 받지 않는다면, 같은 노드더라도
+ *     매번 다른 Nid를 생성하게 된다. 따라서 실패하더라도 현재까지의 정보에 아무런 영향을 주지 않으며,
+ *     다음 재시도 시에 새로운 Nid가 할당된 값을 저장할 것이다.
+ *  - Presence Replace, Delete의 경우, Node Delta의 추가에 대해 Upsert로 진행한다.
+ *     Presence Replace와 Delete에 대해 Node Delta추가를 Upsert로 진행한다면,
+ *     실패하더라도 한 리비전에 대한 Node Delta는 단 하나이고, 이 값은 커밋 시도한 요청중 최신의 값일 것이다.
+ *     한 리비전에 대해 커밋이 성공한다면 항상 그 값은 최신임이 보장된다. (성공한다면 다음 커밋 시도 리비전은 다음 리비전일 것이기 때문이다.)       
+ *  - 해당 델타구간의 노드를 포함하는 Delta의 Data필드는, {nid, revision}으로 구성한다.
+ *     커밋에 성공하면 nid와 revision을 delta의 data필드에 저장하게 되므로, 특정 nid, revision으로 노드를 조회하게 된다.
+ *     따라서 커밋에 성공한 노드들에만 접근하게 된다.
+ */
 var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
     return new Promise(function(resolve, reject){
 	var Connection = db.connection;
         var User = db.user;
         var Group = db.group;
         var newRevision = oldRevision + 1;
-
-        if (nodeInfo.length === 0) {
-            return resolve({
-                uid: user.id,
-                group: gid,
-                revision: oldRevision,
-                delta: []
-            });
-        }
 
 	var countCommitAddPhoto = 0;
 	var countCommitAddAlbum = 0;
@@ -260,7 +299,7 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 	});
 
         User.getGroup(user, gid).then(function (group) {
-            if (newRevision % 2 !== 1) {
+            if (newRevision % 2 === 0) {
                 return longCommit(group, newRevision, nodeInfo, db).then(function (toCommitNodeInfo) {
 		    return [toCommitNodeInfo, group];
                 });
@@ -288,7 +327,7 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 				data: toCommitNodeInfo
 			    };
 			});
-                    })
+                    });
 		}).catch(function(err){
 		    if(err.isAppError){
 			throw err;
@@ -296,24 +335,13 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
 		    throw AppError.throwAppError(500, err.toString());
 		});
 	    }).then(function(committed){
-		return committed;
+		return resolve({
+		    uid : user.id,
+		    group : committed.group.id,
+		    revision: committed.revision,
+		    delta: nodeInfo
+		});
 	    });	
-	}).then(function(committedInfo){
-            return Group.getMemberList(gid).then(function (users) {
-		var uids = [];
-                users.forEach(function (user) {
-		    uids.push(user.id);
-		});
-
-		return amqpExchange.sendCommitMessage(uids, gid).then(function (err) {
-		    return resolve({
-			uid: user.id,
-			group: committedInfo.group.id,
-                        revision: committedInfo.revision,
-                        delta: nodeInfo
-                    });
-		});
-	    });
         }).catch(function (err) {
 	    if(err.isAppError){
 		return reject(err);
@@ -323,17 +351,35 @@ var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
     })
 };
 
-
+/*
+ * Revision 값이 짝수인 경우 2이상의 Revision delta를 순회 한다.
+ * 커밋 요청된 델타를 먼저 저장한 후 타겟 리비전의 스킵 델타를 구한다.
+ * 구한 스킵 리비전 값과 이전 리비전 값 사이의 델타를 모두 구하고 이 델타와 커밋 요청된 델타를 합쳐
+ * 새로운 델타 값을 생성한다.
+ */
 
 var longCommit = function(group, revision, commitChunk, db){
     return new Promise(function(resolve, reject){
         var Group = db.group;
-        var traversalDeltaNumber = Sync.computeTraversal(revision);
+	var traversalDeltaNumber;
 
+	try {
+            traversalDeltaNumber = Sync.computeTraversal(revision);
+	} catch(err){
+	    if(err.isAppError){
+		return reject(err);
+	    }
+	    reject(AppError.throwAppError(500, err.toString()));
+	}
+
+	//traversalDeltaNumber에 해당하는 delta정보를 db로부터 가져온다.
         Group.getDeltaSet(group, traversalDeltaNumber).then(function(deltaSet){
+	    //클라이언트로 받은 commit 대상 노드들을 모두 db에 저장한다.
 	    return Node.saveNodeBatch(commitChunk).then(function(savedNodeList){
 		var nodeDeltaKeys = [];
 
+		//커밋의 경우 deltaSet은 스킵델타의 원리에 따라 항상 forward 값만을 가짐을 보장한.
+		//따라서 forward를 순회하며 delta key array를 구성한다.
 		_.forEach(deltaSet.forward, function(delta){
 		    _.forEach(delta.data, function(node){
 			nodeDeltaKeys.push({
@@ -343,6 +389,7 @@ var longCommit = function(group, revision, commitChunk, db){
 		    });
 		});
 
+		//살아있는 노드를 구하고, 이에 대한 결과로 요청한 커밋 리비전에 대한 델타를 반환한다.
 		return Node.getAliveNodes3(nodeDeltaKeys, savedNodeList).then(function(deltaData){
 		    resolve(deltaData);
 		});
@@ -387,11 +434,12 @@ var update = function(user, gid, startRev, endRev, db) {
             return reject(AppError.throwAppError(400, "Start revision or end revision is null. is wrong argument"));
         }
 
+	//Strat revision보다 end revision이 클 수 없다.
         if (startRev > endRev) {
-            return reject(AppError.throwAppError(400, "End revision is grater than start revision. is wrong argument"));
+            return reject(AppError.throwAppError(400, "End revision is greater than start revision. is wrong argument"));
         }
 
-        // 그룹 확인보다 같은 경우의 fast return이 먼저 있다. 인지하고 있어야 한다.
+        // 그룹 확인보다 같은 경우의 fast return이 먼저 있다. 
         if (startRev === endRev) {
             return fn({
                 gid: gid,
@@ -401,8 +449,9 @@ var update = function(user, gid, startRev, endRev, db) {
         }
 
         User.getGroup(user, gid).then(function(group){
+	    //클라이언트가 요청한 end revision은 그룹의 리비전보다 클 수 없다.
             if (endRev > group.revision) {
-                throw AppError.throwAppError(400, "end revision is grater than groups latest revision. is wrong argument");
+                throw AppError.throwAppError(400, "end revision is greater than groups latest revision. is wrong argument");
             }
 	    
             var src = parseInt(startRev);
@@ -414,10 +463,14 @@ var update = function(user, gid, startRev, endRev, db) {
             } catch (err) {
                 throw AppError.throwAppError(500, err.toString());
             }
+
+	    //tarversalInfo에 해당하는 delta들의 정보를 얻는다.
             return Group.getDeltaSet(group, traversalInfo).then(function(deltaSet){
+		//deltaSet의 backward들과 forward들의 nid, revision으로 실제 노드 정보를 얻는다.
                 return Node.getChangeSetBatch2(group.id, deltaSet.backward).then(function(changeSetBackward){
                     return Node.getChangeSetBatch2(group.id, deltaSet.forward).then(function(changeSetForward){
                         try {
+			    //diff를 통해 backward와 forward에서 중복되는 노드들을 제외시킨다.
                             var result = Sync.generateDifferenceUpdateData(changeSetBackward, changeSetForward);
                         } catch(err){
                             throw AppError.throwAppError(500, err.toString());

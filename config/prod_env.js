@@ -50,7 +50,7 @@ module.exports = {
 	amqpAddr: "amqp://bigfrogcorp.com:5672",
 
 	QUEUE : {
-	    name : "picup"
+	    name : "picup-notification-gcm-1"
 	}
     }
 };
