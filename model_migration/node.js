@@ -217,6 +217,9 @@ Node.deleteNodeBatch = function(nodes){
     })
 };
 
+/*
+ * saveNodeBatch는 인자로 넘어온 node의 리스트를 모두 데이터베이스에 저장한다.
+ */
 Node.saveNodeBatch = function(nodes){
     return new Promise(function(resolve, reject) {
 	var classified = {

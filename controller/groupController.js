@@ -240,6 +240,27 @@ var commit2 = function(user, gid, revision, deltaArray, db, amqp){
 };
 
 
+/* 
+ * commitInternal
+ * S3에 존재하는 커밋 대상 노드들을 인자로 받아 해당 노드들에 대한 커밋을 진행하고 반영한다.
+ *
+ * 아키텍처 구성상, NOSQL에는 노드정보를, RDBMS에는 그룹, 델타정보를 보관하며 다루기 때문에
+ * DB레벨에서의 트랜잭션은 불가능하다.
+ * 따라서 RDBMS의 최종 커밋 반영에만 트랜잭션을 사용하고, 실패허용적으로 커밋 루틴을 구성하여야 한다.
+ * 
+ * 실패허용을 만족하기 위해 다음과 같은 방법을 쓴다.
+ *  - Presence ADD의 노드를 추가할 때, 노드의 특정 값에 영향을 받지 않는 UUID Node Id를 생성한다.
+ *     Presence ADD의 노드 추가때 마다 Nid가 노드의 특정값에 영향을 받지 않는다면, 같은 노드더라도
+ *     매번 다른 Nid를 생성하게 된다. 따라서 실패하더라도 현재까지의 정보에 아무런 영향을 주지 않으며,
+ *     다음 재시도 시에 새로운 Nid가 할당된 값을 저장할 것이다.
+ *  - Presence Replace, Delete의 경우, Node Delta의 추가에 대해 Upsert로 진행한다.
+ *     Presence Replace와 Delete에 대해 Node Delta추가를 Upsert로 진행한다면,
+ *     실패하더라도 한 리비전에 대한 Node Delta는 단 하나이고, 이 값은 커밋 시도한 요청중 최신의 값일 것이다.
+ *     한 리비전에 대해 커밋이 성공한다면 항상 그 값은 최신임이 보장된다. (성공한다면 다음 커밋 시도 리비전은 다음 리비전일 것이기 때문이다.)       
+ *  - 해당 델타구간의 노드를 포함하는 Delta의 Data필드는, {nid, revision}으로 구성한다.
+ *     커밋에 성공하면 nid와 revision을 delta의 data필드에 저장하게 되므로, 특정 nid, revision으로 노드를 조회하게 된다.
+ *     따라서 커밋에 성공한 노드들에만 접근하게 된다.
+ */
 var commitInternal2 = function(user, gid, oldRevision, nodeInfo, db) {
     return new Promise(function(resolve, reject){
 	var Connection = db.connection;
