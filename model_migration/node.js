@@ -260,137 +260,6 @@ Node.saveNodeBatch = function(nodes){
     });
 };
 
-/**
- * nid에 해당하는 노드들 중 revnum과 그 Skip-delta사이의 변경점들을 구한다.
- * @param nid
- * @param revnum
- * @param fn
- */
-Node.getNodeBetweenSkipRevision = function(gid, nid, revnum) {
-    return new Promise(function(resolve, reject){
-        var src = Sync.getSkipDeltaNumber(revnum);
-        var dst = revnum;
-        return NodeMeta.getNodeMetaByIds(gid, nid).then(function(nodeMeta){
-            return NodeDelta.getNodeDeltaByBetweenRev(nodeMeta.nid, src, dst).then(function(nodeDeltas){
-                var result = [];
-                nodeDeltas.forEach(function (nodeDelta) {
-                    var node = new Node(nodeMeta.nid, nodeMeta.gid, nodeMeta.relPath, nodeMeta.kind,
-                        nodeDelta.revision, nodeDelta.presence, nodeDelta.name, nodeDelta.owner,
-                        nodeMeta.author, nodeDelta.s3Path, nodeDelta.s3ThumbnailPath, nodeMeta.exif,
-                        nodeDelta.updatedDate, nodeMeta.uploadedDate, nodeDelta.createdDate);
-                    result.push(node);
-                });
-                resolve(result);
-            })
-        }).catch(function(err){
-            reject(err);
-        })
-    })
-};
-
-
-Node.getNodeBetweenSkipRevisionBatch = function(gid, revision, deltaUpdateList) {
-    return new Promise(function(resolve, reject){
-        var src = Sync.getSkipDeltaNumber(revision);
-        var dst = revision;
-
-        var metaKeys = [];
-
-        _.forEach(deltaUpdateList, function(nid){
-            metaKeys.push({
-                gid : gid,
-                nid : nid
-            });
-        });
-
-        NodeMeta.getNodeMetaByIdsBatch(metaKeys).then(function(nodeMetas){
-            return NodeDelta.getNodeDeltaByBetweenRevBatch(nodeMetas, src, dst).then(function(nodeDeltas){
-                var nodes = [];
-
-		_.forEach(nodeMetas, function(nodeMeta){
-                    var nodeDelta = _.find(nodeDeltas, {nid : nodeMeta.nid});
-                    if(nodeDelta){
-                        var node = new Node(nodeMeta.nid, nodeMeta.gid, nodeMeta.relPath, nodeMeta.kind,
-                            nodeDelta.revision, nodeDelta.presence, nodeDelta.name, nodeDelta.owner,
-                            nodeMeta.author, nodeDelta.s3Path, nodeDelta.s3ThumbnailPath, nodeMeta.exif,
-                            nodeDelta.updatedDate, nodeMeta.uploadedDate, nodeDelta.createdDate);
-                        nodes.push(node);
-                    }
-                });
-                resolve(nodes);
-            })
-        }).catch(function(err){
-            reject(err);
-        });
-    })
-};
-
-
-/**
- * Node의 id가 담겨있는 배열을 받아, 해당 노드가 살아있는지 확인하고,
- * 살아있는 nid들의 배열을 리턴한다.
- * @param nodeArray
- * @param fn
- */
-Node.getAliveNodes = function(gid, nidArray){
-    return new Promise(function(resolve, reject) {
-        var nids = nidArray.slice(0);
-        var result = [];
-        (function checkAlive(){
-            if(nids.length === 0){
-                return resolve(result);
-            }
-            var nid = nids.splice(0,1)[0];
-            Node.isAlive(gid, nid).then(function(is){
-                if(is) result.push(nid);
-                setTimeout(checkAlive, 0);
-            }).catch(function(err){
-                log.error("Node#getAliveNodes", {err :err});
-                return reject(err);
-            });
-        })();
-    })
-};
-
-Node.getAliveNodes2 = function(nodeInfo){    
-    return new Promise(function(resolve, reject){
-	NodeMeta.getNodeMetaByIdsBatch(nodeInfo).then(function(nodeMetas){
-            return NodeDelta.getLatestNodeDeltaBatch(nodeMetas).then(function(nodeDeltas){
-                var nids = [];
-                nodeDeltas.forEach(function(delta){
-                    if(delta.presence !== Sync.PRESENCE_DELETE){
-                        nids.push(delta.nid);
-                    }
-                });
-                resolve(nids);
-            })
-        }).catch(function(err){
-            log.error("Node#isAlive", {err :err});
-            reject(err);
-        });
-    })
-};
-
-/**
- * Node가 delete가 아니라 존재하는 상태인지 확인한다.
- * @param nid
- * @param fn
- */
-Node.isAlive = function(gid, nid){
-    return new Promise(function(resolve, reject){
-        NodeMeta.findNodeById(gid, nid).then(function(nodeMeta){
-            return NodeDelta.findNodeDeltaByNid(nodeMeta.nid).then(function(nodeDelta){
-                if(nodeDelta.presence === Sync.PRESENCE_DELETE){
-                    return resolve(false);
-                }
-                resolve(true);
-            });
-        }).catch(function(err){
-            log.error("Node#isAlive", {err :err});
-            return reject(err);
-        });
-    })
-};
 
 /**
  * getAliveNode3
@@ -399,9 +268,9 @@ Node.isAlive = function(gid, nid){
  * 얻어진 노드-델타 정보들과, 새로 커밋될 노드들의 정보를 연산하여, 새로운 델타에 포함될 노드정보를 얻는다. 
  * 해당 작업은 델타의 크기를 가능한한 최소로 유지하기 위함이다.
  * 
- * ... 8 <- +A - 9       10 <- -B - 11        12 
- *     8 <- - - +AB - - -10
- *     8 <- - - - - - - - +AC - - - - - - - - 12
+ * ... 8 <- +A - 9  ( +B )  10 <- *B - 11 ( -B+C ) 12 
+ *     8 <- - - +AB - - - - 10
+ *     8 <- - - - - - - - - +AC-B - - - - - - - - 12
  * 
  */
 
@@ -409,32 +278,43 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
     return new Promise(function(resolve, reject){
 	NodeDelta.getNodeDeltaByNidAndRevBatch(prevNodesDeltaKey).then(function(prevNodeDeltaList){
 	    
-	    var allNodeOfGroupDelta = _.sortBy(_.concat(prevNodeDeltaList, toCommitNodeList), 'revision');
+	    var allNodeOfGroupDelta = _.concat(prevNodeDeltaList, toCommitNodeList);
 
 	    /**
 	     * long-commit일 경우 만들고자 하는 스킵-델타는 중복된 노드를 가질 수 있다.(ex. 4-8 스킵델타의 한 노드-메타의 5,6,7 노드-델타)
 	     * 포함되는 정보의 조건은 아래 명시.
-	     * 1. 스킵-델타 내에서 추가된 노드(단, 스킵-델타 내에서 삭제되지 않아야 함)
+	     * 1. 스킵-델타 내에서 추가된 노드
 	     * 2. 스킵-델타 내에서 변경된 노드(단, 스킵-델타 내에서 삭제되지 않았고, 변경된 노드-델타중 가장 최신이어야 한다.)
-	     * 3. 스킵-델타 내에서 삭제된 노드(단, 스킵 델타 내에서 추가, 변경 되지 않아야 함)
+	     * 3. 스킵-델타 내에서 삭제된 노드
 	     *
 	     * 위에 해당하는 노드의 정보만 포함하도록 한다.
-	     * alives array에 포함될 노드들을 추가하고, 수정해가며 완성한다.
 	     **/
 
-	    var alives = [];	    
+	    //살아있는 노드의 정보
+	    var alives = [];
+	    //input argument의 replace정보중에 최신의 정보를 유지하며, alives에 추가되길 대기.
+	    var replaces = {};
+	    //input argument의 delete정보, alives에 추가되길 대기. (사실 대기할 필요가 없으나, replaces의 빠른 nid 비교를 위해서)
+	    var deletes = {};
 
 	    _.forEach(allNodeOfGroupDelta, function(node){
 		if(node.presence === Sync.PRESENCE_ADD){
-		    //노드의 presence가 add인 경우는 반드시 alives에 추가한다.
-		    //같은 스킵-델타 안에서 delete가 존재할 수 있으나, 그것은 delete case에서 처리하도록 한다.
-		    //왜냐하면 비즈니스 특성상 add가 delete보다 빈번하게 일어나는 작업이기 때문이다.
+		    //노드의 presence가 add인 경우는 항상 alives에 추가한다.
 		    alives.push(node);
 		} else if(node.presence === Sync.PRESENCE_REPLACE){
-		    //노드의 presence가 replace인 경우에 alives에 같은 nid가 존재하지 않는 경우는 추가하여야 한다.
-		    //같은 nid가 존재하고, revision이 더 높은 경우는 alives의 해당 노드를 최신 정보로 교체시켜 스킵-델타 내에 최신의 필요한 정보만
+		    //노드의 presence가 replace인 경우에 replaces 오브젝트를 검사하여, nid키에 해당되는 값이 있는지 확인한다.
+		    //값이 없다면 일단 추가하여야 한다.
+		    //값이 존재하고, revision이 더 높은 경우는 replaces 오브젝트의 해당 노드를 최신 정보로 교체시켜 스킵-델타 내에 최신의 필요한 정보만
 		    //유지시키도록 한다.
-	
+		    if(replaces[node.nid]){
+			if(node.revision > replaces[node.nid].revision){
+			    replaces[node.nid] = node;
+			}
+		    } else {
+			replaces[node.nid] = node;
+		    }
+			
+	/*
 		    var found = false;
 
 		    for(var j = 0; j < alives.length ; j++){
@@ -449,13 +329,13 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 		    }
 		    
 		    //alives에서 같은 노드(nid와 presence가 일치하는)를 찾지 못했을 경우에는 추가한다.	    
-		   
 		    if(!found){
 			alives.push(node);
 		    }
+	*/
 		    
 		} else {
-		    //노드의 presence가 delete인 경우는, alives에 같은 nid를 지닌 정보를 모두 지우도록 한다.
+		    /*
 		    var found = false;
 		    
 		    for(var j = 0; j < alives.length ; j++){
@@ -469,9 +349,24 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 
 		    if(!found){
 			alives.push(node);
-		    }
+			} */
+
+		    //노드의 presence가 delete인 경우, deletes에 일단 유지시키고 마지막에 합치도록 한다.
+		    deletes[node.nid] = node;
 		}
 	    });
+
+	    //replaces될 노드 중 해당 노드가 이번 스킵-델타 내에서 삭제되지 않는다면 최신의 replace 정보를 포함한다.
+	    for(var nid in replaces){
+		if(!deletes[nid]){
+		    alives.push(replaces[nid]);
+		}
+	    }
+
+	    //delete정보 포함
+	    for(var nid in deletes){
+		alives.push(deletes[nid]);
+	    }
 	    
 	    alives = _.map(alives, function(alive){
 		return {
@@ -482,6 +377,7 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
 
 	    resolve(alives);
 	}).catch(function(err){
+	    console.log(err.stack);
 	    if(err.isAppError){
 		return reject(err);
 	    } 
@@ -490,32 +386,6 @@ Node.getAliveNodes3 = function(prevNodesDeltaKey, toCommitNodeList){
     });
 }
 		         
-		    			
-Node.getChangeSetBatch = function(gid, deltaSet){
-    return new Promise(function(resolve, reject){
-        var jobs = [];
-        _.forEach(deltaSet, function(delta){
-            var job = Node.getNodeBetweenSkipRevisionBatch(gid, delta.revision, delta.data);
-            jobs.push(job);
-        });
-
-        Promise.settle(jobs).then(function(results){
-            var changeSet = [];
-            _.forEach(results, function(result){
-                if(result.isFulfilled()){
-                    changeSet.push(result.value());
-                } else {
-                    return reject(result.reason());
-                }
-            });
-            resolve(changeSet);
-        }).catch(function(err){
-            reject(err);
-        });
-    });
-};
-
-
 Node.getChangeSetBatch2 = function(gid, deltaSet){
     return new Promise(function(resolve, reject){
         var jobs = [];

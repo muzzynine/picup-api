@@ -18,18 +18,21 @@ module.exports = {
     USER : {
         TABLE : "user",
         SCHEME : {
-            id : {type: Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey : true},
-	    mail : {type: Sequelize.STRING(50), allowNull: true},
-	    sex : {type: Sequelize.ENUM('male', 'female', 'unknown'), allowNull: false},
-	    birth : {type: Sequelize.BIGINT, allowNull: true},
-	    phoneNumber : {type: Sequelize.STRING(20), allowNull: true},
-            nickname : { type : Sequelize.STRING(40), allowNull: false},
-            profile_path : { type : Sequelize.STRING(150), allowNull: false},
-	    latestReqDate : { type : Sequelize.BIGINT, defaultValue: Date.now(), allowNull : false},
-	    countAddPhoto : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false},
-	    countDeletedPhoto : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false},
-	    usageStorage : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false}
-        }
+            id : {type: Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey : true, field:'id'},
+	    mail : {type: Sequelize.STRING(50), allowNull: true, field: 'mail'},
+	    sex : {type: Sequelize.ENUM('male', 'female', 'unknown'), allowNull: false, field:'sex'},
+	    birth : {type: Sequelize.BIGINT, allowNull: true, field: 'birth'},
+	    phoneNumber : {type: Sequelize.STRING(20), allowNull: true, field: 'phoneNumber'},
+            nickname : { type : Sequelize.STRING(40), allowNull: false, field: 'nickname'},
+            profilePath : { type : Sequelize.STRING(150), allowNull: false, field: 'profilePath'},
+	    latestReqDate : { type : Sequelize.BIGINT, defaultValue: Date.now(), allowNull : false, field: 'latestReqDate'},
+	    countAddPhoto : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'countAddPhoto'},
+	    countDeletedPhoto : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'countDeletedPhoto'},
+	    usageStorage : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'usageStorage'}
+        },
+	OPTION : {
+	    tableName : "users"
+	}
     },
 
     /*
@@ -43,50 +46,61 @@ module.exports = {
      * last_mod_date : 그룹이 마지막으로 변경된 시간
      * countAlbum : 그룹에 속한 앨범의 수
      */
-
-
     GROUP : {
         TABLE : "groups",
         SCHEME : {
-            id : { type : Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey: true},
-            group_name : { type : Sequelize.STRING(40), allowNull: false},
-            revision : { type : Sequelize.BIGINT, allowNull: false},
-            created_date : { type : Sequelize.BIGINT, allowNull: false },
-            repository : { type : Sequelize.STRING(100), allowNull: false },
-            color : { type : Sequelize.INTEGER, allowNull: false },
-            last_mod_date : { type : Sequelize.BIGINT, defaultValue: Date.now(), allowNull : false},
-	    countPhoto : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false},
-	    countAlbum : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false},
-	    usageStorage : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false}
-        }
+            id : { type : Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey: true, field: 'id'},
+            groupName : { type : Sequelize.STRING(40), allowNull: false, field: 'groupName'},
+            revision : { type : Sequelize.BIGINT, allowNull: false, field: 'revision'},
+            createdDate : { type : Sequelize.BIGINT, allowNull: false, field: 'createdDate'},
+            repository : { type : Sequelize.STRING(100), allowNull: false, field : 'repository'},
+            color : { type : Sequelize.INTEGER, allowNull: false, field: 'color'},
+            lastModDate : { type : Sequelize.BIGINT, defaultValue: Date.now(), allowNull : false, field: 'lastModDate'},
+	    countPhoto : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'countPhoto'},
+	    countAlbum : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'countAlbum'},
+	    usageStorage : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'usageStorage'}
+        },
+	OPTION : {
+	    tableName : "groups"
+	}
     },
 
     DELTA : {
         TABLE : "delta",
         SCHEME : {
-            id : { type : Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey: true},
-            revision : { type : Sequelize.BIGINT, allowNull: false},
-            data : { type : Sequelize.TEXT }
-        }
+            id : { type : Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey: true, field: 'id'},
+            revision : { type : Sequelize.BIGINT, allowNull: false, field: 'revision'},
+            data : { type : Sequelize.TEXT, field: 'data'}
+        },
+	OPTION : {
+	    tableName : "delta",
+	    updatedAt : false
+	}
     },
 
     AUTH : {
         TABLE : "auth",
         SCHEME : {
-            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true},
-            auth_id : {type : Sequelize.STRING(40), allowNull: false},
-            auth_type : { type: Sequelize.ENUM('kakao', 'facebook'), allowNull: false },
-	    isBan : {type : Sequelize.BOOLEAN, defaultValue: false, allowNull: false}
-        }
+            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field: 'id'},
+            authId : {type : Sequelize.STRING(40), allowNull: false, field: 'authId'},
+            authType : { type: Sequelize.ENUM('kakao', 'facebook'), allowNull: false, field: 'authType'},
+	    isBan : {type : Sequelize.BOOLEAN, defaultValue: false, allowNull: false, field: 'isBan'}
+        },
+	OPTION : {
+	    tableName : "auths"
+	}
     },
 
     BAN_INFO : {
 	TABLE : "banInfo",
 	SCHEME : {
-	    id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true},
-	    banReason : { type : Sequelize.STRING(100), defaultValue: "", allowNull: false},
-	    banStartDate : { type : Sequelize.BIGINT, allowNull : false},
-	    banDuration : { type : Sequelize.BIGINT, allowNull : false}
+	    id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field: 'id'},
+	    banReason : { type : Sequelize.STRING(100), defaultValue: "", allowNull: false, field: 'banReason'},
+	    banStartDate : { type : Sequelize.BIGINT, allowNull : false, field: 'banStartDate'},
+	    banDuration : { type : Sequelize.BIGINT, allowNull : false, field: 'banDuration'}
+	},
+	OPTION : {
+	    tableName : "banInfos"
 	}
     },
 
@@ -94,29 +108,38 @@ module.exports = {
     ACCESS_TOKEN : {
         TABLE : "accessToken",
         SCHEME : {
-            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true },
-            access_token : { type : Sequelize.STRING, allowNull: false},
-            refresh_token : { type : Sequelize.STRING, allowNull: false},
-            expired_in : { type : Sequelize.BIGINT, allowNull: false},
-            created_time : { type : Sequelize.BIGINT, allowNull : false}
-        }
+            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field: 'id'},
+            accessToken : { type : Sequelize.STRING, allowNull: false, field: 'accessToken'},
+            refreshToken : { type : Sequelize.STRING, allowNull: false, field : 'refreshToken'},
+            expiredIn : { type : Sequelize.BIGINT, allowNull: false, field : 'expiredIn'},
+            createdTime : { type : Sequelize.BIGINT, allowNull : false, field : 'createdTime'}
+        },
+	OPTION : {
+	    tableName : "accessTokens"
+	}
     },
 
     CLIENT : {
         TABLE : "client",
         SCHEME : {
-            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true },
-            client_id : { type : Sequelize.STRING, allowNull: false},
-            client_secret : { type : Sequelize.STRING, allowNull: false}
-        }
+            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field:'id'},
+            clientId : { type : Sequelize.STRING, allowNull: false, field:'clientId'},
+            clientSecret : { type : Sequelize.STRING, allowNull: false, field:'clientSecret'}
+        },
+	OPTION : {
+	    tableName : "clients"
+	}
     },
 
     PUSH_REGISTRATION : {
         TABLE : "pushRegistration",
         SCHEME : {
-            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true },
-            registration_id : { type : Sequelize.STRING, allowNull : false }
-        }
+            id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field:'id'},
+            registrationId : { type : Sequelize.STRING, allowNull : false, field:'registrationId'}
+        },
+	OPTION : {
+	    tableName : "pushRegistrations"
+	}
     },
 
     NODE_META : {

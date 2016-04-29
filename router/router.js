@@ -22,15 +22,32 @@ module.exports = router;
 
 
 router.use('/invite', inviteRouter);
-router.use(passport.authenticate('bearer', { session : false }),
-    function (err, req, res, next){
-        if(err) {
-            res.status(err.errorCode);
-            res.json(err);
-            return;
-        }
-        next();
- });
+router.use(function(req, res, next){
+    passport.authenticate('bearer', { session : false }, function(err, user, info){
+	if(err){
+	    log.error("#verifyBearer", {err : err}, {stack : err.stack});
+	    if(err.isAppError){
+		res.status(err.errorCode);
+		res.json(err);
+	    } else {
+		res.status(500);
+		res.json({});
+	    }
+	    return;
+	}
+	if(!user){
+	    var error = appError.throwAppError(401, "Unauthorized");
+	    res.status(error.errorCode);
+	    res.json(error);
+	    return;
+	}
+
+	req.user = user;
+	next();
+    })(req, res, next);
+});
+			 
+
 
 //router.use(auth.checkScope, auth.errorHandler);
 

@@ -59,7 +59,7 @@ var testNodeInstantiateOne = function(presence){
 
 describe('Node - node dao(contain meta, delta)', function(){
     this.timeout(5000);
-    describe('#generateNodeInfo', function(){
+    describe.skip('#generateNodeInfo', function(){
         it("good test case", function(){
             var deltaArray = [];
 
@@ -87,7 +87,7 @@ describe('Node - node dao(contain meta, delta)', function(){
         });
     });
 
-    describe('Node#incrementRevi22sion', function(){
+    describe.skip('Node#incrementRevi22sion', function(){
         var testNode = testNodeInstantiateOne();
 
         it('It works for me', function(){
@@ -97,7 +97,7 @@ describe('Node - node dao(contain meta, delta)', function(){
         });
     });
 
-    describe('#addNodeBatch', function(){
+    describe.skip('#addNodeBatch', function(){
         var testNodeSize = 100;
         var testNodeSize2 = 200;
         var toSaveNode = testNodeInstantiateMany(testNodeSize, "add");
@@ -122,7 +122,7 @@ describe('Node - node dao(contain meta, delta)', function(){
 	});
     });
 
-    describe('#replaceNodeBatch', function(){
+    describe.skip('#replaceNodeBatch', function(){
         var testNode;
         var testNodeSize = 3;
         var testNode2;
@@ -192,7 +192,7 @@ describe('Node - node dao(contain meta, delta)', function(){
         })
     })
 
-    describe('#deleteNodeBatch', function(){
+    describe.skip('#deleteNodeBatch', function(){
         //#deleteNodeBatch is same logic with #replaceNodeBatch
     });
 
@@ -221,29 +221,31 @@ describe('Node - node dao(contain meta, delta)', function(){
 	
 
 	prepare.push(
-	    new Node(dupNodeId4, testGroup.id, "testRelPath4", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor"),
-	    new Node(dupNodeId5, testGroup.id, "testRelPath5", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor")
+	    new Node(dupNodeId5, testGroup.id, "testRelPath5", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor"),
+	    new Node(dupNodeId4, testGroup.id, "testRelPath4", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor")
 	);
 	
 
 	addNode.push(
-	    new Node(dupNodeId1, testGroup.id, "testRelPath", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor"),
-	    new Node(dupNodeId2, testGroup.id, "testRelPath3", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor"),
-	    new Node(dupNodeId3, testGroup.id, "testRelPath1", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor")
+	    new Node(dupNodeId1, testGroup.id, "testRelPath1", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor"),
+	    new Node(dupNodeId2, testGroup.id, "testRelPath2", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor"),
+	    new Node(dupNodeId3, testGroup.id, "testRelPath3", "file", 1, Sync.PRESENCE_ADD, null, null, "testAuthor")
 	);
 
 	deleteNode.push(
-	    new Node(dupNodeId1, testGroup.id, "testRelPath", "file", 2, Sync.PRESENCE_DELETE, null, null, "testAuthor"),
-	    new Node(dupNodeId4, testGroup.id, "testRelPath4", "file", 3, Sync.PRESENCE_DELETE, null, null, "testAuthor")
+	    new Node(dupNodeId1, testGroup.id, "testRelPath1", "file", 2, Sync.PRESENCE_DELETE, null, null, "testAuthor"),
+	    new Node(dupNodeId4, testGroup.id, "testRelPath4", "file", 3, Sync.PRESENCE_DELETE, null, null, "testAuthor"),
+	    new Node(dupNodeId3, testGroup.id, "testRelPath3", "file", 3, Sync.PRESENCE_DELETE, null, null, "testAuthor")
 	);
 	    
 	replaceNode.push(
-	    new Node(dupNodeId2, testGroup.id, "testRelPath3", "file", 2, Sync.PRESENCE_REPLACE, null, null, "testAuthor")
+	    new Node(dupNodeId2, testGroup.id, "testRelPath2", "file", 2, Sync.PRESENCE_REPLACE, null, null, "testAuthor"),
+	    new Node(dupNodeId3, testGroup.id, "testRelPath3", "file", 2, Sync.PRESENCE_REPLACE, null, null, "testAuthor")
 	);
 
 	replaceNode2.push(
 	    new Node(dupNodeId5, testGroup.id, "testRelPath5", "file", 4, Sync.PRESENCE_REPLACE, null, null, "testAuthor"),
-	    new Node(dupNodeId2, testGroup.id, "testRelPath3", "file", 3, Sync.PRESENCE_REPLACE, null, null, "testAuthor")
+	    new Node(dupNodeId2, testGroup.id, "testRelPath2", "file", 3, Sync.PRESENCE_REPLACE, null, null, "testAuthor")
 	);
 
 	before(function(done){
@@ -288,19 +290,31 @@ describe('Node - node dao(contain meta, delta)', function(){
 	    });
 	});
 
-	it('It works for me', function(done){
-	    var toCommit = [new Node(UUID.v1(), testGroup.id, "testRelPath4", "file", 3, Sync.PRESENCE_ADD)];
+	it('Its works for me', function(done){
+	    var toCommit = [new Node(UUID.v1(), testGroup.id, "testRelPath6", "file", 5, Sync.PRESENCE_ADD)];
 	    var expected = [];
-	    expected.push(addNode[1].nid, addNode[2].nid, toCommit[0].nid, deleteNode[1].nid, replaceNode2[0].nid, replaceNode2[1].nid);
+	    expected.push(addNode[0], deleteNode[0], addNode[1], replaceNode2[1], addNode[2], deleteNode[2], deleteNode[1], replaceNode2[0], toCommit[0]);
 
 	    Node.getAliveNodes3(prevNode, toCommit).then(function(result){
-		result = _.map(result, function(r){
-		    return r.nid;
+		expected = _.map(expected, function(node){
+		    return {
+			nid : node.nid,
+			revision : node.revision
+		    }
 		});
-		
-		if(_.isEqual(expected.sort(), result.sort())){
-		    return done()
+
+		function sortBy(a, b){
+		    if(a.revision > b.revision){
+			return 1;
+		    }
+		    if(a.revision < b.revision){
+			return -1;
+		    }
+		    else return 0;
 		}
+		
+		if(_.isEqual(expected.sort(sortBy), result.sort(sortBy))) return done()
+		 
 		throw new Error("Test failed. expected " + expected.toString() + " But actual " + result.toString());
 	    }).catch(function(err){
 		done(err);
@@ -309,7 +323,7 @@ describe('Node - node dao(contain meta, delta)', function(){
     });
 
 
-    describe('#saveNodeBatch', function(){
+    describe.skip('#saveNodeBatch', function(){
 	var testNodeCount = 50;
         var nodeChunkedSize = 20;
         var toAddNode = testNodeInstantiateMany(testNodeCount, "add");

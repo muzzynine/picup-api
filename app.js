@@ -1,3 +1,4 @@
+
 /**
  * Created by impyeong-gang on 12/7/15.
  */
@@ -8,7 +9,6 @@ var config = require('./config/config');
 var passport = require('passport');
 var path = require('path');
 var cookieParser = require('cookie-parser');
-var session = require('express-session');
 var logging = require('./lib/logger');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('MainLogger');

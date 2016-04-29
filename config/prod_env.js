@@ -16,7 +16,7 @@ module.exports = {
 	},
 
 	//in develop enviroment, just indirect to api endpoint.
-	reverse_proxy : {
+	reverseProxy : {
 	    addr : 'http://h3.bigfrogcorp.com',
 	    port : '80'
 	}
@@ -29,7 +29,7 @@ module.exports = {
 	profileBucket : "bigfrog.picup.profile"
     },
 
-    auth_server: {
+    authServer: {
 	addr : '54.238.255.255',
 	port : '8110',
 	authPath : '/verify/token'

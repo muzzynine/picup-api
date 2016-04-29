@@ -17,8 +17,8 @@ var getMyProfile = function(user, db){
                 var result = {
                     id : user.id,
                     nickname : user.nickname,
-                    profile_s3path : user.profile_path,
-                    auth_type : auth.auth_type,
+                    profileS3path : user.profilePath,
+                    authType : auth.authType,
                     group : groupIds
                 };
                 resolve(result);
@@ -41,7 +41,7 @@ var getProfile = function(uid, db){
                 var result = {
                     id : user.id,
                     nickname : user.nickname,
-                    profile_s3path: user.profile_path,
+                    profileS3path: user.profilePath,
                     group : groupIds
                 };
                 resolve(result);

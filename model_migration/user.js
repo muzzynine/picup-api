@@ -11,26 +11,16 @@ var log = bunyan.getLogger('DataModelLogger');
 var BUCKET_INFO = config.S3.originalBucket;
 
 module.exports = function(connection){
-    var User = connection.define(UserShceme.TABLE,
-        UserShceme.SCHEME, {
-            instanceMethods: {
-                getProfile : function(){
-                    return {
-                        uid : user.id,
-                        nickname : user.nickname,
-                        pic_s3path : user.profile_path
-                    }
-                }
-            }
-        });
+    var User = connection.define(UserShceme.TABLE, UserShceme.SCHEME, UserShceme.OPTION);
 
+    /*
+     * uid로 유저 인스턴스를 얻는다.
+     *
+     * @param String {uid} 인스턴스를 얻고자 하는 유저의 primary key
+     */
     User.findUserById = function(uid){
         return new Promise(function(resolve, reject){
-            return User.findOne({
-                where : {
-                    id : uid
-                }
-            }).then(function(user){
+            return User.findById(uid).then(function(user){
                 if(!user){
 		    throw AppError.throwAppError(404, "Not exist user");
                 }
@@ -45,6 +35,12 @@ module.exports = function(connection){
     };
 
 
+    /* 
+     * 유저가 속해있는 그룹의 인스턴스를 얻는다.
+     *
+     * @param Object {user} 유저의 인스턴스
+     * @param String {gid} 얻고자 하는 그룹의 primary key
+     */
     User.getGroup = function(user, gid) {
         return new Promise(function(resolve, reject){
             user.getGroups({
@@ -53,36 +49,78 @@ module.exports = function(connection){
                 }
             }).then(function (groups) {
                 if (groups.length === 0) {
-                    return reject(AppError.throwAppError(404));
+		    throw AppError.throwAppError(404, "Not Exist group");
                 }
                 resolve(groups[0]);
             }).catch(function(err){
-                reject(err);
-            })
-        })
+		if(err.isAppError){
+		    reject(err);
+		} else {
+		    reject(AppError.throwAppError(500, err.toString()));
+		}
+            });
+        });
+    };
+
+    User.getGroupWithSharedLock = function(user, gid, transaction){
+        return new Promise(function(resolve, reject){
+            user.getGroups({
+                where : {
+                    id : gid
+                },
+		lock : transaction.LOCK.SHARE
+            }).then(function(groups){
+                if(groups.length === 0){
+		    throw AppError.throwAppError(404, "Not exist group");
+                }
+                resolve(groups[0]);
+            }).catch(function(err){
+		if(err.isAppError){
+		    reject(err);
+		} else {
+		    reject(AppError.throwAppError(500, err.toString()));
+		}
+            });
+        });
     };
 
 
-    User.getGroupWithUpdateLock = function(user, gid, transaction){
+    /*
+     * 유저가 속해있는 그룹의 인스턴스를 얻는다.
+     * 이 때 해당 그룹에 대하여 트랜잭션, Exclusive lock을 걸고 얻는다.
+     *
+     * @param Object {user} 유저의 인스턴스
+     * @param String {gid} 얻고자 하는 그룹의 primary key
+     * @param Sequelize.Transaction {transaction} 트랜잭션 인스턴스
+     */
+    User.getGroupWithTransaction = function(user, gid, transaction){
         return new Promise(function(resolve, reject){
-            return user.getGroups({
+            user.getGroups({
                 where : {
                     id : gid
                 },
                 transaction: transaction,
-                lock : transaction.LOCK.UPDATE
+		lock : transaction.LOCK.UPDATE
             }).then(function(groups){
                 if(groups.length === 0){
-                    return reject(AppError.throwAppError(404));
+		    throw AppError.throwAppError(404, "Not exist group");
                 }
                 resolve(groups[0]);
             }).catch(function(err){
-                log.error("User#getGroupWithUpdateLock/DB(RDBMS) Internal error", {err :err});
-                reject(AppError.throwAppError(500));
+		if(err.isAppError){
+		    reject(err);
+		} else {
+		    reject(AppError.throwAppError(500, err.toString()));
+		}
             });
-        })
+        });
     };
 
+    /*
+     * 유저가 속해있는 모든 그룹의 아이디를 얻는다.
+     *
+     * @param Object {user} 유저의 인스턴스
+     */
 
     User.getGroupList = function(user){
         return new Promise(function(resolve, reject){
@@ -123,7 +161,7 @@ module.exports = function(connection){
         return new Promise(function(resolve, reject){
             return user.update({
                 nickname : nickname,
-                profile_path : profilePath
+                profilePath : profilePath
             }).then(function(){
                 resolve();
             }).catch(function(err){

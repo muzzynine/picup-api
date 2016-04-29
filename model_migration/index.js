@@ -9,10 +9,9 @@ var logger = require('../lib/logger');
 var log = bunyan.getLogger('DatabaseConnectLogger');
 
 
+Dynamo.setDefaults( { create : false } );
 Dynamo.AWS.config.update({
-    accessKeyId: 'AKIAIS2NL7ODIW22FN7A',
-    secretAccessKey: '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',
-    region : 'ap-northeast-2'
+    region: "ap-northeast-2"
 });
 
 var nodeMeta = require('./nodeMeta');
@@ -27,7 +26,7 @@ var connection = new Sequelize(config.DATABASE, config.USERNAME, config.PASSWORD
         min: 0,
         idle: 100000
     },
-    logging: false
+    logging: true
 });
 
 log.info("index#Database(RDBMS/NOSQL) connected");

@@ -42,8 +42,8 @@ router.get('/profile', function (req, res) {
         res.json({
             uid: profile.id,
             nickname: profile.nickname,
-            profile_s3path: profile.profile_s3path,
-            auth_type: profile.auth_type,
+            profile_s3path: profile.profileS3path,
+            auth_type: profile.authType,
             group: profile.group
         });
     }).catch(function(err){
@@ -88,7 +88,7 @@ router.get('/:uid/profile', function (req, res) {
         res.json({
             uid: user.id,
             nickname: user.nickname,
-            profile_s3path: user.profile_s3path,
+            profile_s3path: user.profileS3path,
             group: user.group
         });
     }).catch(function(err){
@@ -179,7 +179,7 @@ router.post('/:uid/profile', function (req, res) {
         res.json({
             uid: user.id,
             nickname: user.nickname,
-            profile_s3path: user.profile_path
+            profile_s3path: user.profilePath
         });
     }).catch(function(err){
 	log.error("#setProfile", {err:err}, {user : user.id}, {stack:err.stack});

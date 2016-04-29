@@ -5,7 +5,7 @@ var AuthScheme = require('./scheme').AUTH;
 
 
 module.exports = function(connection){
-    var Auth = connection.define(AuthScheme.TABLE, AuthScheme.SCHEME);
+    var Auth = connection.define(AuthScheme.TABLE, AuthScheme.SCHEME, AuthScheme.OPTION);
 
     return Auth;
 };

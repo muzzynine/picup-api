@@ -18,21 +18,6 @@ module.exports = NodeMeta;
 
 var NUMBER_OF_REQUEST_CONCURRENCY = 100;
 
-NodeMeta.getNodeMetaByIds = function(gid, nid){
-    return new Promise(function(resolve, reject){
-        NodeMeta.get({gid : gid, nid : nid}, function(err, nodeMeta){
-            if(err){
-                log.error("NodeMeta#findNodeById/DB(NOSQL) Internal error", {err :err});
-                return reject(AppError.throwAppError(500));
-            }
-            if(!nodeMeta){
-                return reject(AppError.throwAppError(404));
-            }
-            resolve(nodeMeta);
-        });
-    })
-};
-
 NodeMeta.getNodeMetaByIdsBatch = function(metaKeyArray){
     return new Promise(function(resolve, reject){
         var keyChunk = _.chunk(metaKeyArray, NUMBER_OF_REQUEST_CONCURRENCY);

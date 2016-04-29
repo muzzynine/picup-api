@@ -10,6 +10,8 @@ var AppError = require('../lib/appError');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('AMQPLogger');
 
+var RECONNECT_TIMEOUT = 5000;
+
 function GCMPusher(){
     this.db = {};
     this.conn = {};
@@ -53,7 +55,7 @@ GCMPusher.prototype.connect = function(){
 
 GCMPusher.prototype.reconnect = function(err){
     var self = this;
-    seltTimeout(function(){
+    setTimeout(function(){
 	log.info("AMQP#reconnect", {url : config.AMQP.amqpAddr}, {qName : config.AMQP.QUEUE.name});
 	self.connect();
     }, RECONNECT_TIMEOUT);

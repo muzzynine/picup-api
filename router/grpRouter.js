@@ -43,18 +43,18 @@ module.exports = router;
 
 router.post('/', function (req, res) {
     var user = req.user;
-    var group_name = req.body.group_name;
-    var group_color = parseInt(req.body.group_color);
+    var groupName = req.body.group_name;
+    var groupColor = parseInt(req.body.group_color);
 
     var db = req.app.get('models');
 
-    groupController.createGroup(user, group_name, group_color, db).then(function(group){
+    groupController.createGroup(user, groupName, groupColor, db).then(function(group){
         res.status(200);
         res.json({
             group_id : group.id,
-            group_name : group.group_name,
-            last_mod_date : group.last_mod_date,
-            created_date : group.created_date,
+            group_name : group.groupName,
+            last_mod_date : group.lastModDate,
+            created_date : group.createdDate,
             revision : group.revision,
             s3path : group.repository,
             s3key : "not yet",
@@ -111,10 +111,10 @@ router.get('/:gid', function (req, res) {
         res.status(200);
         res.json({
             group_id: group.id,
-            group_name: group.group_name,
+            group_name: group.groupName,
             revision: group.revision,
-            last_mod_date : group.last_mod_date,
-            created_date: group.created_date,
+            last_mod_date : group.lastModDate,
+            created_date: group.createdDate,
             s3key: "not yet",
             s3path: group.repository,
             group_color: group.color
@@ -262,7 +262,7 @@ router.get('/:gid/members', function (req, res) {
         res.json({
             group_id: gid,
             count: profiles.count,
-            user_info: profiles.user_info
+            user_info: profiles.userInfo
         });
     }).catch(function(err){
 	log.error("#getGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -350,13 +350,13 @@ router.get('/:gid/delta', function (req, res) {
 router.post('/:gid/name', function (req, res) {
     var user = req.user;
     var gid = req.params.gid;
-    var group_name = req.body.group_name;
+    var groupName = req.body.group_name;
 
     var db = req.app.get('models');
 
     /* authentication */
 
-    groupController.updateGroupName(user, gid, group_name, db).then(function(group){
+    groupController.updateGroupName(user, gid, groupName, db).then(function(group){
         res.status(200);
         res.json({
             group_id : group.id,
