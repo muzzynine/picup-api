@@ -13,17 +13,6 @@ var bunyan = require('bunyan');
 var log = bunyan.getLogger('BusinessLogicLogger');
 var utils = require('../utils/utils');
 
-
-if(process.env.NODE_ENV == 'development'){
-    //Sequelize query log printed std out
-    Promise.config({
-	warnings : false
-    });
-} else if(process.env.NODE_ENV == 'production'){
-    
-}
-
-
 /**
  * 그룹을 생성하는 비즈니스 로직을 담당한다.
  * 그룹 생성은 - 그룹 생성을 생성하고 생성한 그룹에 유저를 추가하는 작업으로 이루어진다.
@@ -36,25 +25,20 @@ if(process.env.NODE_ENV == 'development'){
  * @returns Promise
  */
 var createGroup = function(user, groupName, groupColor, db){
-    return new Promise(function(resolve, reject){
-        var Group = db.group;
-        var Connection = db.connection;
-	
-        Connection.transaction(function(t){
-            return Group.createGroup(groupName, groupColor, t).then(function(group){
-                return user.addGroup(group, {transaction : t}).then(function(){
-                    return group;
-                })
-            })
-        }).then(function(group){
-            resolve(group);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        });
-    });
+    var Group = db.group;
+    var Connection = db.connection;
+    
+    return Connection.transaction(function(t){
+	var self = this;
+        return Group.createGroup(groupName, groupColor, t).then(function(group){
+	    self.group = group;
+	    return user.addGroup(group, {transaction : t, benchmark : true});
+	}).then(function(){
+	    return;
+	});
+    }).then(function(){
+	return this.group;
+    }).bind({});
 };
 
 
@@ -67,40 +51,27 @@ var createGroup = function(user, groupName, groupColor, db){
  * @param Promise
  */
 var getGroup = function(user, gid, db){
-    return new Promise(function(resolve, reject){
-        var User = db.user;
-
-        User.getGroup(user, gid).then(function(group){
-            resolve(group);
-        }).catch(function(err){
-	    //유저가 그룹의 맴버가 아닌 경우, 404 에러가 반환된다.
-            reject(err);
-        })
-    })
+    var User = db.user;
+    //유저가 그룹의 맴버가 아닌 경우 404발생
+    return User.getGroup(user, gid).then(function(group){
+	return group;
+    });
 };
 
 /**
  * 그룹의 맴버들에 대한 정보를 얻는다.
  * 유저가 그룹에 대한 권한이 없으면 예외를 발생시킨다.
  * @param gid 그룹의 아이디
- * @param uid 유저의 아이디
+z * @param uid 유저의 아이디
  */
 var getGroupMember = function(user, gid, db){
-    return new Promise(function(resolve, reject){
-	var User = db.user;
-	var Group = db.group;
+    var User = db.user;
+    var Group = db.group;
 
-	User.getGroup(user, gid).then(function(group){
-            return Group.getMemberProfile(group).then(function(profiles){
-		resolve(profiles)
-            });
-	}).catch(function(err){
-	    //유저가 그룹의 맴버가 아닌 경우, 404 에러가 반환된다.
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
-	});
+    return User.getGroup(user, gid).then(function(group){
+        return Group.getMemberProfile(group);
+    }).then(function(profiles){
+	return profiles;
     });
 };
 
@@ -113,20 +84,13 @@ var getGroupMember = function(user, gid, db){
  * @param fn
  */
 var updateGroupName = function(user, gid, newName, db){
-    return new Promise(function(resolve, reject){
-        var User = db.user;
-        var Group = db.group;
+    var User = db.user;
+    var Group = db.group;
 
-        User.getGroup(user, gid).then(function(group){
-            return Group.updateGroupName(group, newName).then(function(chgrp){
-                resolve(chgrp);
-            })
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        });
+    return User.getGroup(user, gid).then(function(group){
+        return Group.updateGroupName(group, newName);
+    }).then(function(chgrp){
+	return chgrp;
     });
 };
 
@@ -138,25 +102,20 @@ var updateGroupName = function(user, gid, newName, db){
  * @param User
  */
 var addGroupMember = function(user, gid, db){
-    return new Promise(function(resolve, reject){
-        var Group = db.group;
+    var Group = db.group;
 
-        Group.findGroupById(gid).then(function(group){
-	    //Sequelize에서 n:m Instance에 대한 addAssocation시 존재하는 경우 update, 존재하지 않는 경우 insert로 내부적으로 진행된다.
-	    //따라서 추가시 이미 추가되어있는지 중복하여 검사할 필요는 없다.
-	    return user.addGroup(group).then(function(){
-                resolve({
-		    uid : user.id,
-		    gid : group.id
-                });
-	    });
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        })
-    })
+    return Group.findGroupById(gid).bind({}).then(function(group){
+	this.group = group;
+	return user.hasGroup(this.group, {benchmark : true});
+    }).then(function(isExist){
+	if(isExist){
+	    return;
+	} else {
+	    return user.addGroup(this.group, {benchmark : true});
+	}
+    }).then(function(){
+	return this.group;
+    });
 };
 
 /**
@@ -168,23 +127,21 @@ var addGroupMember = function(user, gid, db){
 */
 
 var deleteGroupMember = function(user, gid, db){
-    return new Promise(function(resolve, reject){
-        var User = db.user;
+    var User = db.user;
 
-        User.getGroup(user, gid).then(function(group){
-            return user.removeGroup(group).then(function(){
-                resolve({
-                    uid: user.id,
-                    gid: group.id
-                });
-            });
-        }).catch(function(err){
-	    //유저가 그룹의 맴버가 아닐 경우 예외 발생
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
+    return User.getGroup(user, gid).then(function(group){
+        return user.removeGroup(group).then(function(){
+            return group;
         });
+    }).then(function(group){
+	return [user.id, group.id];
+    }).catch(function(err){
+	if(err.isAppError){
+	    if(err.errorCode === 404){
+		return [user.id, gid];
+	    }
+	}
+	throw err;
     });
 };
 
@@ -197,80 +154,84 @@ var deleteGroupMember = function(user, gid, db){
 *
 * 위의 3단계를 문제없이 완료하여야 커밋이 이루어진다.
 */
-var commit2 = function(user, gid, revision, deltaArray, db, amqp){
-    return new Promise(function(resolve, reject){
-        /*
-         * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
-         * s3 storage에 있는지 확인함.
-         * add, replace의 노드들을 확인해야함
-         */
-	var User = db.user;
-	var Group = db.group;
-        var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
+var commit2 = function(user, gid, revision, deltaArray, db, session, amqp){
 
-	User.getGroup(user, gid).then(function(group){
- 	    if(revision === null || revision !== group.revision){
-		throw AppError.throwAppError(400, "revision in request revision is not equal to groups latest revision");
-	    }
-	    
-            return awsS3.checkExistNodeObjectsBatch(nodeInfo).then(function(originNeedBlocks){
-		/* originConfirmList는 원본 파일이 s3에 존재하는 노드 리스트이다.
-		 * 썸네일 또한 S3에 존재하는 것을 보장하기 위하여, originConfirmList의 썸네일들이 s3에 존재하는지 확인한다. */
-		var originConfirmList = _.difference(nodeInfo, originNeedBlocks);
+    /*
+     * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
+     * s3 storage에 있는지 확인함.
+     * add, replace의 노드들을 확인해야함
+     */
+    var User = db.user;
+    var Group = db.group;
+    var nodeInfo = Node.generateNodeInfo(deltaArray, user.id, gid, revision);
+    return User.findUserById(user.id).bind({}).then(function(baseUser){
+	this.user = baseUser;
+	return User.getGroup(this.user, gid);
+    }).then(function(group){
+	this.group = group;
+ 	if(revision === null || revision !== group.revision){
+	    throw AppError.throwAppError(400, "revision in request revision is not equal to groups latest revision");
+	}
 
-		/* 원본이 존재하는 노드들에 대해, 썸네일 또한 s3에 존재하는지 확인한다. */
+	return awsS3.checkExistNodeObjectsBatch(nodeInfo);
+    }).then(function(originNeedBlocks){
 
-		return awsS3.checkExistThumbObjectsBatch(originConfirmList).then(function(thumbNeedBlocks){
-                    /*
-                     * 커밋 대상은, S3에 원본과 썸네일까지 존재하는 노드들이다.
-                     * 모두 존재하는 노드들에 대해서는 커밋을 진행하고,
-                     * 원본과 썸네일이 존재하지 않는 노드에 대해서는 needBlocks에 리턴하고,
-                     * 원본은 존재하나 아직 썸네일이 존재하지 않는 노드에 대해서는, 썸네일이 만들어지는 과정이라 가정하고 따로 알리지 않는다.
-                     * 이런 처리가 가능한 이유는 예상하지 못한 오류로 썸네일이 만들어지지 못하더라도, 커밋을 방지할 수 있으며
-                     * 클라이언트 입장에서는 커밋 처리가 안되는 노드이기 때문에, 능동적으로 판단하여 클라이언트 레벨에서 처리할 수 있도록 한다.
-                     */
-                    var commitList = _.difference(originConfirmList, thumbNeedBlocks);
+	/* originConfirmList는 원본 파일이 s3에 존재하는 노드 리스트이다.
+	 * 썸네일 또한 S3에 존재하는 것을 보장하기 위하여, originConfirmList의 썸네일들이 s3에 존재하는지 확인한다. */
 
-		    var needBlocks = _.concat(originNeedBlocks, thumbNeedBlocks);
-		    
-		    /* 
-		     * 커밋할 것이 없는 경우 needBlocks와 빈 델타와 함꼐 함수 리턴
-		     */
+	this.originNeedBlocks = originNeedBlocks;
+	this.originConfirmList = _.difference(nodeInfo, originNeedBlocks);
 
-		    if(commitList.length === 0){
-			return resolve(
-			    [
-				needBlocks,
-				{
-				    uid : user.id,
-				    group : group.id,
-				    revision : revision,
-				    delta : []
-				}
-			    ]
-			);
-		    }
-		    
-		    return commitInternal2(user, group, revision, commitList, db).then(function(commitResult){
-			//커밋 완료 후 그룹 맴버들에 대한 Notification 진행
-			return Group.getMemberList(gid).then(function (users) {
-			    var uids = [];
-			    users.forEach(function (user) {
-				uids.push(user.id);
-			    });
-			    return amqp.sendCommitMessage(uids, gid).then(function () {
-				resolve([needBlocks, commitResult]);
-			    });
-			});
-                    });
-		});
+	/* 원본이 존재하는 노드들에 대해, 썸네일 또한 s3에 존재하는지 확인한다. */
+
+	return awsS3.checkExistThumbObjectsBatch(this.originConfirmList);
+    }).then(function(thumbNeedBlocks){
+	/*
+	 * 커밋 대상은, S3에 원본과 썸네일까지 존재하는 노드들이다.
+	 * 모두 존재하는 노드들에 대해서는 커밋을 진행하고,
+	 * 원본과 썸네일이 존재하지 않는 노드에 대해서는 needBlocks에 리턴하고,
+	 * 원본은 존재하나 아직 썸네일이 존재하지 않는 노드에 대해서는, 썸네일이 만들어지는 과정이라 가정하고 따로 알리지 않는다.
+	 * 이런 처리가 가능한 이유는 예상하지 못한 오류로 썸네일이 만들어지지 못하더라도, 커밋을 방지할 수 있으며
+	 * 클라이언트 입장에서는 커밋 처리가 안되는 노드이기 때문에, 능동적으로 판단하여 클라이언트 레벨에서 처리할 수 있도록 한다.
+	 */
+
+	var commitList = _.difference(this.originConfirmList, thumbNeedBlocks);
+	
+	this.needBlocks = _.concat(this.originNeedBlocks, thumbNeedBlocks);
+	
+	/* 
+	 * 커밋할 것이 없는 경우 needBlocks와 빈 델타와 함꼐 함수 리턴
+	 */
+	if(commitList.length === 0){
+	    return [
+		this.group,
+		[]
+	    ]
+	}
+	
+	return commitInternal2(this.user, this.group, commitList, db);
+    }).spread(function(committedGroup, delta){
+	var self = this;
+	/*
+	 * 커밋이 완료된 후에 유저정보가 바뀌었기 떄문에 세션에서 해당 유저의 정보를 삭제한다.
+	 * 이후 요청시 다시 인증서버로부터 세션에 세팅될 것이다.
+	 * 또한 클라이언트에게 커밋사실을 알리기 위해 amqp 메시지큐로 커밋 상태 메시지를 보낸다.
+	 * 이 두가지 작업은 성공/실패를 따로 핸들링 하지 않는다. 
+	 * 즉 실패하더라도 클라이언트 응답에 아무런 문제가 없다.
+	 */
+	return Group.getMemberList(committedGroup).then(function (members) {
+	    var uids = [];
+	    members.forEach(function (member) {
+		if(self.user.id !== member.id) uids.push(member.id);
 	    });
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
+	    return amqp.sendCommitMessage(uids, committedGroup.id);
+	}).then(function(){
+	    return [committedGroup, delta];
+	}).catch(function(){
+	    return [committedGroup, delta];
 	});
+    }).spread(function(committedGroup, delta){
+	return [this.needBlocks, committedGroup.id, committedGroup.revision, delta];
     });
 };
 
@@ -296,110 +257,98 @@ var commit2 = function(user, gid, revision, deltaArray, db, amqp){
  *     커밋에 성공하면 nid와 revision을 delta의 data필드에 저장하게 되므로, 특정 nid, revision으로 노드를 조회하게 된다.
  *     따라서 커밋에 성공한 노드들에만 접근하게 된다.
  */
-var commitInternal2 = function(user, targetGroup, oldRevision, nodeInfo, db) {
-    return new Promise(function(resolve, reject){
-	var Connection = db.connection;
-        var User = db.user;
-        var Group = db.group;
-        var newRevision = oldRevision + 1;
+var commitInternal2 = function(user, targetGroup, nodeInfo, db) {
+    var Connection = db.connection;
+    var User = db.user;
+    var Group = db.group;
+    var newRevision = targetGroup.revision + 1;
 
-	var countCommitAddPhoto = 0;
-	var countCommitAddAlbum = 0;
-	var countCommitDelPhoto = 0;
-	var countCommitDelAlbum = 0;
-	var countAddedTotalFileSize = 0;
-	var countDeletedTotalFileSize = 0;
+    var countCommitAddPhoto = 0;
+    var countCommitAddAlbum = 0;
+    var countCommitDelPhoto = 0;
+    var countCommitDelAlbum = 0;
+    var countAddedTotalFileSize = 0;
+    var countDeletedTotalFileSize = 0;
 
-	//커밋시 앨범, 사진, 용량의 증감 여부를 카운트한다.
-	nodeInfo.forEach(function(node){
-	    if(node.presence === Sync.PRESENCE_ADD){
-		if(node.kind === Sync.KIND_DIR){
-		    countCommitAddAlbum++;
-		} else if(node.kind === Sync.KIND_FILE){
-		    countCommitAddPhoto++;
-		    if(node.exif && node.exif.fileSize){
-			countAddedTotalFileSize += node.exif.fileSize;
-		    } 
-		}
-	    } else if(node.presence === Sync.PRESENCE_DELETE){
-		if(node.kind === Sync.KIND_DIR){
-		    countCommitDelAlbum++;
-		} else if(node.kind === Sync.KIND_FILE){
-		    countCommitDelPhoto++;
-		    if(node.exif && node.exif.fileSize){
-			countDeletedTotalFileSize += node.exif.fileSize;
-		    } 
-		}
+    //커밋시 앨범, 사진, 용량의 증감 여부를 카운트한다.
+    nodeInfo.forEach(function(node){
+	if(node.presence === Sync.PRESENCE_ADD){
+	    if(node.kind === Sync.KIND_DIR){
+		countCommitAddAlbum++;
+	    } else if(node.kind === Sync.KIND_FILE){
+		countCommitAddPhoto++;
+		if(node.exif && node.exif.fileSize){
+		    countAddedTotalFileSize += node.exif.fileSize;
+		} 
 	    }
-	    node.incrementRevision();
+	} else if(node.presence === Sync.PRESENCE_DELETE){
+	    if(node.kind === Sync.KIND_DIR){
+		countCommitDelAlbum++;
+	    } else if(node.kind === Sync.KIND_FILE){
+		countCommitDelPhoto++;
+		if(node.exif && node.exif.fileSize){
+		    countDeletedTotalFileSize += node.exif.fileSize;
+		} 
+	    }
+	}
+	node.incrementRevision();
+    });
+
+    //짝수리비전, 홀수리비전의 커밋은 약간 다르게 이루어진다.
+    //SkipDelta방식으로 커밋을 진행할 때 짝수리비전 커밋에서는 이전 델타 정보들과 현재 커밋하고자 하는 델타의 연산이 필요하나
+    //홀수리비전 커밋에서는 필요하지 않다. 따라서 구분하여 처리한다.
+    return Group.findGroupById(targetGroup.id).then(function (group) {
+        if (newRevision % 2 === 0) {
+            return longCommit(group, newRevision, nodeInfo, db);
+	} else {
+	    return shortCommit(group, newRevision, nodeInfo, db);
+	}
+    }).then(function(toCommitNodeInfo){
+	//델타를 만들기 위한 연산이 끝난후 이 델타를 데이터베이스에 적용할 떄 트랜잭션을 적용한다.
+	//SELECT ... FOR UPDATE는 autocommit = 0 이어야만 레코드에 Exclusive Lock이 걸린다.
+        return Connection.transaction().then(function(t){
+	    //내부에서 그룹의 리비전을 다시한번 확인한다.
+	    //트랜잭션이 시작되기 전 델타 연산을 하는 사이 해당 그룹에 대하여 리비전이 변경될 가능성이 있기 떄문이다.
+	    return User.getGroupWithTransaction(user, targetGroup.id, t).bind({}).then(function(verifiedGroup){
+		//save
+		this.group = verifiedGroup;
+		
+                if(targetGroup.revision !== verifiedGroup.revision){
+		    throw AppError.throwAppError(400, "In transaction, revision in request revision is not equal to groups latest revision");
+                }
+		
+		var countAlbum = countCommitAddAlbum - countCommitDelAlbum;
+		var countPhoto = countCommitAddPhoto - countCommitDelPhoto;
+		var countStorage = countAddedTotalFileSize - countDeletedTotalFileSize;
+
+		verifiedGroup.countPhoto += countPhoto;
+		verifiedGroup.countAlbum += countAlbum;
+		verifiedGroup.usageStorage += countStorage;
+
+		user.countAddPhoto += countCommitAddPhoto;
+		user.countDeletedPhoto += countCommitDelPhoto;
+		user.usageStorage += countStorage;
+
+                return Group.commitApply2(verifiedGroup, toCommitNodeInfo, t);
+	    }).then(function(){
+		return User.commitApply(user, t);
+	    }).then(function(){
+		return t.commit();
+	    }).then(function(){
+		return this.group;
+	    }).catch(function(err){
+		return t.rollback().then(function(){
+		    if(err.isAppError){
+			throw err;
+		    } else {
+			throw AppError.throwAppError(500, err.toString());
+		    }
+		});
+	    });
 	});
-
-	//짝수리비전, 홀수리비전의 커밋은 약간 다르게 이루어진다.
-	//SkipDelta방식으로 커밋을 진행할 때 짝수리비전 커밋에서는 이전 델타 정보들과 현재 커밋하고자 하는 델타의 연산이 필요하나
-	//홀수리비전 커밋에서는 필요하지 않다. 따라서 구분하여 처리한다.
-        return Group.findGroupById(targetGroup.id).then(function (group) {
-            if (newRevision % 2 === 0) {
-                return longCommit(group, newRevision, nodeInfo, db).then(function (toCommitNodeInfo) {
-		    return [toCommitNodeInfo, group];
-                });
-            } else {
-                return shortCommit(group, newRevision, nodeInfo, db).then(function (toCommitNodeInfo) {
-		    return [toCommitNodeInfo, group];
-                });
-            }
-	}).spread(function(toCommitNodeInfo, group){
-	    //델타를 만들기 위한 연산이 끝난후 이 델타를 데이터베이스에 적용할 떄 트랜잭션을 적용한다.
-	    //SELECT ... FOR UPDATE는 autocommit = 0 이어야만 레코드에 Exclusive Lock이 걸린다.
-            return Connection.transaction({
-		autocommit: true
-	    }).then(function(t){
-		//내부에서 그룹의 리비전을 다시한번 확인한다.
-		//트랜잭션이 시작되기 전 델타 연산을 하는 사이 해당 그룹에 대하여 리비전이 변경될 가능성이 있기 떄문이다.
-		return User.getGroupWithTransaction(user, group.id, t).then(function(verifiedGroup){
-                    if(oldRevision !== group.revision){
-			throw AppError.throwAppError(400, "In transaction, revision in request revision is not equal to groups latest revision");
-                    }
-
-		    var countAlbum = countCommitAddAlbum - countCommitDelAlbum;
-		    var countPhoto = countCommitAddPhoto - countCommitDelPhoto;
-		    var usageStorage = countAddedTotalFileSize - countDeletedTotalFileSize;
-
-
-                    return Group.commitApply2(group, newRevision, toCommitNodeInfo, countAlbum, countPhoto, usageStorage, t).then(function(){
-			return User.commitApply(user, countCommitAddPhoto, countCommitDelPhoto, countAddedTotalFileSize, t).then(function(){
-			    return t.commit().then(function(){
-				return {
-				    revision: newRevision,
-				    group: verifiedGroup,
-				    data: toCommitNodeInfo
-				};
-			    });
-			});
-                    });
-		}).catch(function(err){
-		    return t.rollback().then(function(){
-			if(err.isAppError){
-			    throw err;
-			} else {
-			    throw AppError.throwAppError(500, err.toString());
-			}
-		    });
-		});
-	    }).then(function(committed){
-		return resolve({
-		    uid : user.id,
-		    group : committed.group.id,
-		    revision: committed.revision,
-		    delta: nodeInfo
-		});
-	    });	
-        }).catch(function (err) {
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        });
-    })
+    }).then(function(verifiedGroup){
+	return [verifiedGroup, nodeInfo];
+    });
 };
 
 /*
@@ -410,48 +359,38 @@ var commitInternal2 = function(user, targetGroup, oldRevision, nodeInfo, db) {
  */
 
 var longCommit = function(group, revision, commitChunk, db){
-    return new Promise(function(resolve, reject){
-        var Group = db.group;
-	var traversalDeltaNumber;
+    var Group = db.group;
+    var traversalDeltaNumber;
 
-	try {
-            traversalDeltaNumber = Sync.computeTraversal(revision);
-	} catch(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    return reject(AppError.throwAppError(500, err.toString()));
-	}
+    try {
+        traversalDeltaNumber = Sync.computeTraversal(revision);
+    } catch(err){
+	throw err;
+    }
 
-	//traversalDeltaNumber에 해당하는 delta정보를 db로부터 가져온다.
-        Group.getDeltaSet(group, traversalDeltaNumber).then(function(deltaSet){
-	    //클라이언트로 받은 commit 대상 노드들을 모두 db에 저장한다.
-	    return Node.saveNodeBatch(commitChunk).then(function(savedNodeList){
-		var nodeDeltaKeys = [];
+    //traversalDeltaNumber에 해당하는 delta정보를 db로부터 가져온다.
+    return Group.getDeltaSet(group, traversalDeltaNumber).spread(function(backwards, forwards){
+	//클라이언트로 받은 commit 대상 노드들을 모두 db에 저장한다.
+	return Node.saveNodeBatch(commitChunk).then(function(savedNodeList){
+ 	    var nodeDeltaKeys = [];
 
-		//커밋의 경우 deltaSet은 스킵델타의 원리에 따라 항상 forward 값만을 가짐을 보장한.
-		//따라서 forward를 순회하며 delta key array를 구성한다.
-		_.forEach(deltaSet.forward, function(delta){
-		    _.forEach(delta.data, function(node){
-			nodeDeltaKeys.push({
-			    nid : node.nid,
-			    revision : node.revision
-			});
+	    //커밋의 경우 deltaSet은 스킵델타의 원리에 따라 항상 forward 값만을 가짐을 보장한.
+	    //따라서 forward를 순회하며 delta key array를 구성한다.
+	    _.forEach(forwards, function(delta){
+		_.forEach(delta.data, function(node){
+		    nodeDeltaKeys.push({
+			nid : node.nid,
+			revision : node.revision
 		    });
 		});
+	    });
 
-		//살아있는 노드를 구하고, 이에 대한 결과로 요청한 커밋 리비전에 대한 델타를 반환한다.
-		return Node.getAliveNodes3(nodeDeltaKeys, savedNodeList).then(function(deltaData){
-		    resolve(deltaData);
-		});
-	    });	    
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    } 
-	    reject(AppError.throwAppError(500, err.toString()));
-        });
-    });
+	    //살아있는 노드를 구하고, 이에 대한 결과로 요청한 커밋 리비전에 대한 델타를 반환한다.
+	    return Node.getAliveNodes3(nodeDeltaKeys, savedNodeList);
+	});
+    }).then(function(deltaData){
+	return deltaData;
+    });	    
 };
 
 /* 
@@ -460,113 +399,85 @@ var longCommit = function(group, revision, commitChunk, db){
  */
 
 var shortCommit = function(group, revision, commitChunk){
-    return new Promise(function(resolve, reject){
-        Node.saveNodeBatch(commitChunk).then(function(savedNodeList){
-   	    var savedNodeIds = [];
-		    
-	    _.forEach(savedNodeList, function(saved){
-		savedNodeIds.push({nid : saved.nid, revision : saved.revision})
-	    });
+    return Node.saveNodeBatch(commitChunk).then(function(savedNodeList){
+   	var savedNodeIds = [];
+	
+	_.forEach(savedNodeList, function(saved){
+	    savedNodeIds.push({nid : saved.nid, revision : saved.revision})
+	});
 
-            resolve(savedNodeIds);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        })
-    })
+        return savedNodeIds;
+    });
 };
 
 
 var update = function(user, gid, startRev, endRev, db) {
-    return new Promise(function(resolve, reject){
-        var User = db.user;
-        var Group = db.group;
-        var Delta = db.delta;
-	var Connection = db.connection;
+    var User = db.user;
+    var Group = db.group;
+    var Delta = db.delta;
+    var Connection = db.connection;
 
-	//Start revision에 0이 올 경우 !startRev에 포함되므로, null임을 체크한다.
-        if (startRev === null || !endRev) {
-            return reject(AppError.throwAppError(400, "Start revision or end revision is null. is wrong argument"));
+    return User.getGroup(user, gid).bind({}).then(function(group){
+	this.group = group;
+	
+	if (endRev > group.revision) {
+            throw AppError.throwAppError(400, "end revision is greater than groups latest revision. is wrong argument");
+        }
+	
+        var src = parseInt(startRev);
+        var dst = parseInt(endRev);
+
+        /* src와 dst로 탐색해야 하는 리비전 넘버셋을 구한다 */
+        try {
+            var traversalInfo = Sync.getDeltaList(src, dst);
+        } catch (err) {
+            throw AppError.throwAppError(500, err.toString());
         }
 
-	//Strat revision보다 end revision이 클 수 없다.
-        if (startRev > endRev) {
-            return reject(AppError.throwAppError(400, "End revision is greater than start revision. is wrong argument"));
+	return [group, traversalInfo];
+	
+    }).spread(function(group, traversalInfo){
+	//tarversalInfo에 해당하는 delta들의 정보를 얻는다.
+        return Group.getDeltaSet(group, traversalInfo, Connection).spread(function(backwards, forwards){
+	    //deltaSet의 backward들과 forward들의 nid, revision으로 실제 노드 정보를 얻는다.
+            return Node.getChangeSetBatch2(group.id, backwards).then(function(changeSetBackward){
+		return Node.getChangeSetBatch2(group.id, forwards).then(function(changeSetForward){
+		    return [changeSetBackward, changeSetForward];
+		});
+	    });
+	});
+    }).spread(function(changeSetBackward, changeSetForward){
+	var result;
+        try {
+	    //diff를 통해 backward와 forward에서 중복되는 노드들을 제외시킨다.
+	    var forwardList = utils.sumDeltaListForUpdate(changeSetForward);
+	    var backwardList = utils.sumDeltaListForUpdate(changeSetBackward);
+
+	    result = _.differenceBy(forwardList, backwardList, function(element){
+		return element.nid + element.revision;
+	    });
+
+        } catch(err){
+            throw AppError.throwAppError(500, err.toString());
         }
 
-        // 그룹 확인보다 같은 경우의 fast return이 먼저 있다. 
-        if (startRev === endRev) {
-            return fn({
-                gid: gid,
-                revision: startRev,
-                delta: []
-            });
-        }
-
-	return User.getGroup(user, gid).then(function(group){
-	    if (endRev > group.revision) {
-                throw AppError.throwAppError(400, "end revision is greater than groups latest revision. is wrong argument");
-            }
-	    
-            var src = parseInt(startRev);
-            var dst = parseInt(endRev);
-
-            /* src와 dst로 탐색해야 하는 리비전 넘버셋을 구한다 */
-            try {
-                var traversalInfo = Sync.getDeltaList(src, dst);
-            } catch (err) {
-                throw AppError.throwAppError(500, err.toString());
-            }
-
-	    //tarversalInfo에 해당하는 delta들의 정보를 얻는다.
-            return Group.getDeltaSet(group, traversalInfo, Connection).then(function(deltaSet){
-		//deltaSet의 backward들과 forward들의 nid, revision으로 실제 노드 정보를 얻는다.
-                return Node.getChangeSetBatch2(group.id, deltaSet.backward).then(function(changeSetBackward){
-                    return Node.getChangeSetBatch2(group.id, deltaSet.forward).then(function(changeSetForward){
-			var result;
-                        try {
-			    //diff를 통해 backward와 forward에서 중복되는 노드들을 제외시킨다.
-			    var forwardList = utils.sumDeltaListForUpdate(changeSetForward);
-			    var backwardList = utils.sumDeltaListForUpdate(changeSetBackward);
-
-			    result = _.differenceBy(forwardList, backwardList, function(element){
-				return element.nid + element.revision;
-			    });
-
-                        } catch(err){
-                            throw AppError.throwAppError(500, err.toString());
-                        }
-                        resolve({
-                            gid: group.id,
-                            revision: group.revision,
-                            delta: result
-                        });
-                    })
-                })
-            })
-	}).catch(function(err){
-	    if(err.isAppError){
-		reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        });
+        return [this.group, result];
     });
 };
+	     
     
 
 var getInviteUrl = function(user, gid, db){
-    return new Promise(function(resolve, reject){
-        try {
-            var Group = db.group;
-            var inviteUrl = Group.getInviteUrl(user.id, gid);
-        } catch(err){
-            return reject(AppError.throwAppError(500, err.toString()));
-        }
-        resolve(inviteUrl);
-    });
+    var inviteUrl;
+    try {
+        var Group = db.group;
+        inviteUrl = Group.getInviteUrl(user.id, gid);
+    } catch(err){
+	throw AppError.throwAppError(500, err.toString());
+    }
+    return inviteUrl;
 };
+
 
 
 exports.createGroup = createGroup;

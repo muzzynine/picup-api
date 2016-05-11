@@ -31,6 +31,12 @@ module.exports = {
 	authPath : '/verify/token'
     },
 
+    SESSION : {
+	url : 'redis://127.0.0.1:6379',
+	//develop option
+	disableTTL : false
+    },
+	
     DB: {
 	MYSQL:{
 	    HOST : 'bigfrfog-picup.cpcmirt0kyjt.ap-northeast-2.rds.amazonaws.com',

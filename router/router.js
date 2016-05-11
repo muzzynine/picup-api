@@ -45,15 +45,38 @@ router.use(function(req, res, next){
 	req.user = user;
 	next();
     })(req, res, next);
-});
-			 
+}, function(req, res, next){
+    /*
+    var Session = req.app.get('session');
+    var accessToken = req.headers.authorization.split(' ')[1];
+
+    var user = req.user;
+    user.latestReqDate = Date.now();
+    console.log("USER ID : " + user.id);
+
+    Session.set(accessToken, user).then(function(){
+	return;
+    }).catch(function(){
+	return;
+    }).then(function(){
+	next();
+    });
+*/
+
+    var User = req.app.get('models').user;
+
+    User.latestTimestampUpdate(req.user).then(function(){
+	next();
+    }).catch(function(){
+	next();
+    });
+
+});			 
 
 
 //router.use(auth.checkScope, auth.errorHandler);
 
 router.get('/hello', function (req, res) {
-    console.log(req.authInfo);
-    console.log(req.user);
     res.status(200);
     res.json({
         "message": "hello"
@@ -63,5 +86,4 @@ router.get('/hello', function (req, res) {
 
 router.use('/group', grpRouter);
 router.use('/membership', membershipRouter);
-
 

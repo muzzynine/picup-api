@@ -9,76 +9,65 @@ var bunyan = require('bunyan');
 var log = bunyan.getLogger('MembershipLogger');
 
 var getMyProfile = function(user, db){
-    return new Promise(function(resolve, reject){
-        var User = db.user;
+    var User = db.user;
 
-        User.getGroupList(user).then(function(groupIds){
-            return User.getAuthInfo(user).then(function(auth){
-                var result = {
-                    id : user.id,
-                    nickname : user.nickname,
-                    profileS3path : user.profilePath,
-                    authType : auth.authType,
-                    group : groupIds
-                };
-                resolve(result);
-            });
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
+    return User.getGroupList(user).then(function(groupIds){
+        return User.getAuthInfo(user).then(function(auth){
+            var result = {
+                id : user.id,
+                nickname : user.nickname,
+                profileS3path : user.profilePath,
+                authType : auth.authType,
+                group : groupIds
+            };
+            return result;
         });
-    });
+    })
 };
 
 var getProfile = function(uid, db){
-    return new Promise(function(resolve, reject){
-        var User = db.user;
+    var User = db.user;
 
-        User.findUserById(uid).then(function(user){
-            return User.getGroupList(user).then(function(groupIds){
-                var result = {
-                    id : user.id,
-                    nickname : user.nickname,
-                    profileS3path: user.profilePath,
-                    group : groupIds
-                };
-                resolve(result);
-            });
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
+    return User.findUserById(uid).then(function(user){
+        return User.getGroupList(user).then(function(groupIds){
+            var result = {
+                id : user.id,
+                nickname : user.nickname,
+                profileS3path: user.profilePath,
+                group : groupIds
+            };
+            return result;
         });
     });
 };
 
 var getUserProfilePath = function(user, db){
-    return new Promise(function(resolve, reject){
-        try {
-            var User = db.user;
-            var s3path = User.getProfileS3path(user.id);
-        } catch(err){
-            throw AppError.throwAppError(500, err.toString());
-        }
-        resolve(s3path);
-    })
+    try {
+        var User = db.user;
+        var s3path = User.getProfileS3path(user.id);
+    } catch(err){
+        throw AppError.throwAppError(500, err.toString());
+    }
+    return s3path;
 };
 
-var setProfile = function(user, nickname, s3path, db){
-    return new Promise(function(resolve, reject){
-        var User = db.user;
+var setProfile = function(user, nickname, profilePath, accessToken, db, session){
+    var User = db.user;
 
-        User.setProfile(user, nickname, s3path).then(function(){
-            resolve(user);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
-        });
+    return User.setProfile(user, nickname, profilePath).then(function(){
+	user.nickname = nickname;
+	user.profilePath = profilePath;
+	return session.set(accessToken, {
+	    id : user.id,
+	    nickname : user.nickname,
+	    profilePath : user.profilePath
+	}).then(function(){
+	    return;
+	}).catch(function(err){
+	    return;
+	});
+    }).then(function(){
+	return user;
     });
 };
 

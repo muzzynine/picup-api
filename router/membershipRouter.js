@@ -40,11 +40,11 @@ router.get('/profile', function (req, res) {
     membershipController.getMyProfile(user, db).then(function(profile){
         res.status(200);
         res.json({
-            uid: profile.id,
-            nickname: profile.nickname,
-            profile_s3path: profile.profileS3path,
-            auth_type: profile.authType,
-            group: profile.group
+	    uid: profile.id,
+	    nickname: profile.nickname,
+	    profile_s3path: profile.profileS3path,
+	    auth_type: profile.authType,
+	    group: profile.group
         });
     }).catch(function(err){
 	log.error("#getMyProfile", {err:err}, {user : user.id}, {stack:err.stack});
@@ -55,7 +55,6 @@ router.get('/profile', function (req, res) {
 	    res.status(500);
 	    res.json({});
 	}
-
     });
 });
 
@@ -86,10 +85,10 @@ router.get('/:uid/profile', function (req, res) {
     membershipController.getProfile(uid, db).then(function(user){
         res.status(200);
         res.json({
-            uid: user.id,
-            nickname: user.nickname,
-            profile_s3path: user.profileS3path,
-            group: user.group
+	    uid: user.id,
+	    nickname: user.nickname,
+	    profile_s3path: user.profileS3path,
+	    group: user.group
         });
     }).catch(function(err){
 	log.error("#getProfile", {err:err}, {user : uid}, {stack:err.stack});
@@ -123,17 +122,16 @@ router.get('/:uid/profile', function (req, res) {
 router.get('/:uid/profile/s3path', function (req, res) {
     var user = req.user;
 
-    /* authentication */
-
     var db = req.app.get('models');
 
-    membershipController.getUserProfilePath(user, db).then(function(path){
+    try{
+	var profilePath = membershipController.getUserProfilePath(user, db);
         res.status(200);
         res.json({
-            uid : user.id,
-            profile_s3path : path
+	    uid : user.id,
+	    profile_s3path : profilePath
         });
-    }).catch(function(err){
+    } catch(err){
 	log.error("#getUserProfilePath", {err:err}, {user : user.id}, {stack:err.stack});
 	if(err.isAppError){
 	    res.status(err.errorCode);
@@ -142,7 +140,7 @@ router.get('/:uid/profile/s3path', function (req, res) {
 	    res.status(500);
 	    res.json({});
 	}
-    });
+    }
 });
 
 
@@ -172,14 +170,17 @@ router.post('/:uid/profile', function (req, res) {
     var s3path = req.body.profile_s3path;
 
     var db = req.app.get('models');
+    var session = req.app.get('session');
 
-    /*authentication*/
-    membershipController.setProfile(user, nickname, s3path, db).then(function(user){
+    //Bearer 인증 떄 이미 Validation이 되었으므로 항상 존재하는 것으로 간주한다.
+    var accessToken = req.headers.authorization.split(' ')[1];
+
+    membershipController.setProfile(user, nickname, s3path, accessToken, db, session).then(function(user){
         res.status(200);
         res.json({
-            uid: user.id,
-            nickname: user.nickname,
-            profile_s3path: user.profilePath
+	    uid: user.id,
+	    nickname: user.nickname,
+	    profile_s3path: user.profilePath
         });
     }).catch(function(err){
 	log.error("#setProfile", {err:err}, {user : user.id}, {stack:err.stack});
@@ -187,7 +188,7 @@ router.post('/:uid/profile', function (req, res) {
 	    res.status(err.errorCode);
 	    res.json(err);
 	} else {
-	    res.status(500);
+	    res.sstatus(500);
 	    res.json({});
 	}
     });

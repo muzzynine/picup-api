@@ -19,30 +19,23 @@ module.exports = NodeMeta;
 var NUMBER_OF_REQUEST_CONCURRENCY = 100;
 
 NodeMeta.getNodeMetaByIdsBatch = function(metaKeyArray){
-    return new Promise(function(resolve, reject){
-        var keyChunk = _.chunk(metaKeyArray, NUMBER_OF_REQUEST_CONCURRENCY);
-        var jobs = [];
+    var keyChunk = _.chunk(metaKeyArray, NUMBER_OF_REQUEST_CONCURRENCY);
+    var jobs = [];
 
-        _.forEach(keyChunk, function(keyArray){
-            jobs.push(NodeMeta.batchGet(keyArray))
-        });
+    _.forEach(keyChunk, function(keyArray){
+        jobs.push(NodeMeta.batchGet(keyArray))
+    });
 
-        Promise.settle(jobs).then(function(results){
-            var found = [];
-            _.forEach(results, function(result){
-                if(result.isFulfilled()){
-                    found = _.concat(found, result.value());
-                } else {
-                    throw result.reason();
-                }
-            });
-            resolve(found);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
+    return Promise.settle(jobs).then(function(results){
+        var found = [];
+        _.forEach(results, function(result){
+            if(result.isFulfilled()){
+                found = _.concat(found, result.value());
+            } else {
+                throw result.reason();
+            }
         });
+        return found;
     });
 };
 
@@ -73,119 +66,57 @@ NodeMeta.getNodeMetaByGidAndRelPath = function(gid, relPath){
  * 다수의 getNodeMetaByGidAndRelPath를 병렬적으로 일어나도록 한다.
  */
 NodeMeta.getNodeMetaByGidAndRelPathBatch = function(nodeInfos){
-    return new Promise(function(resolve, reject){
-        var jobs = [];
-        _.forEach(nodeInfos, function(nodeInfo){
-            jobs.push(NodeMeta.getNodeMetaByGidAndRelPath(nodeInfo.gid, nodeInfo.relPath));
-        });
+    var jobs = [];
+    _.forEach(nodeInfos, function(nodeInfo){
+        jobs.push(NodeMeta.getNodeMetaByGidAndRelPath(nodeInfo.gid, nodeInfo.relPath));
+    });
 
-        Promise.settle(jobs).then(function(results){
-            var found = [];
-            _.forEach(results, function(result){
-                if(result.isFulfilled()){
-                    found.push(result.value());
-                } else {
-		    throw result.reason();
-                }
-            })
-            resolve(found);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
-
+    return Promise.settle(jobs).then(function(results){
+        var found = [];
+        _.forEach(results, function(result){
+            if(result.isFulfilled()){
+                found.push(result.value());
+            } else {
+		throw result.reason();
+            }
         })
-    })
+        return found;
+    });
 };
 
 
 NodeMeta.addNodeMetaBatch = function(nodeArray){
-    return new Promise(function(resolve, reject){
-        var nodeMetaArray = [];
+    var nodeMetaArray = [];
 
-        _.forEach(nodeArray, function(node){
-            node.nid = uuid.v1();
+    _.forEach(nodeArray, function(node){
+        node.nid = uuid.v1();
 
-            var nodeMeta = {
-                gid : node.gid,
-                nid : node.nid,
-                relPath : node.relPath,
-                kind : node.kind,
-                author : node.author,
-                uploadedDate : node.uploadedDate,
-                exif : node.exif
-            };
-            nodeMetaArray.push(nodeMeta);
+        var nodeMeta = {
+            gid : node.gid,
+            nid : node.nid,
+            relPath : node.relPath,
+            kind : node.kind,
+            author : node.author,
+            uploadedDate : node.uploadedDate,
+            exif : node.exif
+        };
+        nodeMetaArray.push(nodeMeta);
+    });
+
+    var metaChunk = _.chunk(nodeMetaArray, NUMBER_OF_REQUEST_CONCURRENCY);
+    var jobs = [];
+
+    _.forEach(metaChunk, function(chunk){
+	jobs.push(NodeMeta.batchPut(chunk))
+    });
+    
+    return Promise.settle(jobs).then(function(results){
+	_.forEach(results, function(result){
+            if(!result.isFulfilled()){
+                throw result.reason();
+            }
         });
-
-        var metaChunk = _.chunk(nodeMetaArray, NUMBER_OF_REQUEST_CONCURRENCY);
-        var jobs = [];
-
-        _.forEach(metaChunk, function(chunk){
-	    jobs.push(NodeMeta.batchPut(chunk))
-        });
-	
-	Promise.settle(jobs).then(function(results){
-	    _.forEach(results, function(result){
-                if(!result.isFulfilled()){
-                    throw result.reason();
-                }
-            });
-            resolve(nodeMetaArray);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-            reject(AppError.throwAppError(500, err.toString()));
-        });
-	
+        return nodeMetaArray;
     });
 };
 
-/**
- * 새로운 노드에 대한 Document를 생성한다.
- * Insert가 아닌 Upsert로 하여 이전 실패작업에 대한 허용을 처리한다.
- * @param node
- * @param fn
- */
-NodeMeta.addNodeMeta = function(node){
-    return new Promise(function(resolve, reject){
-        if(!node.nid) node.nid = uuid.v1();
-        NodeMeta.get({gid : node.gid, nid : node.nid}, function(err, nodeMeta){
-            if(err){
-                return reject(AppError.throwAppError(500));
-            }
-            if(!nodeMeta){
-                NodeMeta.create({
-                    gid : node.gid,
-                    nid : node.nid,
-                    relPath : node.relPath,
-                    kind : node.kind,
-                    author : node.author,
-                    uploadedDate : node.uploadedDate,
-                    exif : node.exif
-                }, function(err, created){
-                    if(err){
-                        log.error("NodeMeta#addNodeDelta/DB(NOSQL) Internal error", {err :err});
-                        return reject(AppError.throwAppError(500));
-                    }
-                    resolve(created);
-                });
-            } else {
-                nodeMeta.kind = node.kind;
-                nodeMeta.author = node.author;
-                nodeMeta.uploadedDate = node.uploadedDate;
-                nodeMeta.exif = node.exif;
-
-                nodeMeta.save(function(err){
-                    if(err){
-                        log.error("NodeMeta#addNodeDelta/DB(NOSQL) Internal error", {err :err});
-                        return reject(AppError.throwAppError(500));
-                    }
-                    resolve(nodeMeta);
-                })
-            }
-        });
-    });
-};

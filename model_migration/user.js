@@ -19,19 +19,17 @@ module.exports = function(connection){
      * @param String {uid} 인스턴스를 얻고자 하는 유저의 primary key
      */
     User.findUserById = function(uid){
-        return new Promise(function(resolve, reject){
-            return User.findById(uid).then(function(user){
-                if(!user){
-		    throw AppError.throwAppError(404, "Not exist user");
-                }
-                resolve(user);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-		reject(AppError.throwAppError(500, err.toString()));
-            });
-        })
+        return User.findOne({
+	    where : {
+		id : uid,
+		isAlive : true
+	    }
+	}).then(function(user){
+            if(!user){
+		throw AppError.throwAppError(404, "Not exist user");
+            }
+            return user;
+        });
     };
 
 
@@ -42,45 +40,31 @@ module.exports = function(connection){
      * @param String {gid} 얻고자 하는 그룹의 primary key
      */
     User.getGroup = function(user, gid) {
-        return new Promise(function(resolve, reject){
-            user.getGroups({
-                where: {
-                    id: gid
-                }
-            }).then(function (groups) {
-                if (groups.length === 0) {
-		    throw AppError.throwAppError(404, "Not Exist group");
-                }
-                resolve(groups[0]);
-            }).catch(function(err){
-		if(err.isAppError){
-		    reject(err);
-		} else {
-		    reject(AppError.throwAppError(500, err.toString()));
-		}
-            });
+        return user.getGroups({
+            where: {
+                id: gid,
+		isAlive: true
+            }
+        }).then(function (groups) {
+            if (groups.length === 0) {
+		throw AppError.throwAppError(404, "Not Exist group");
+            }
+            return groups[0];
         });
     };
 
     User.getGroupWithSharedLock = function(user, gid, transaction){
-        return new Promise(function(resolve, reject){
-            user.getGroups({
-                where : {
-                    id : gid
-                },
-		lock : transaction.LOCK.SHARE
-            }).then(function(groups){
-                if(groups.length === 0){
-		    throw AppError.throwAppError(404, "Not exist group");
-                }
-                resolve(groups[0]);
-            }).catch(function(err){
-		if(err.isAppError){
-		    reject(err);
-		} else {
-		    reject(AppError.throwAppError(500, err.toString()));
-		}
-            });
+        return user.getGroups({
+            where : {
+                id : gid,
+		isAlive: true
+            },
+	    lock : transaction.LOCK.SHARE
+        }).then(function(groups){
+            if(groups.length === 0){
+		throw AppError.throwAppError(404, "Not exist group");
+            }
+            return groups[0];
         });
     };
 
@@ -94,25 +78,18 @@ module.exports = function(connection){
      * @param Sequelize.Transaction {transaction} 트랜잭션 인스턴스
      */
     User.getGroupWithTransaction = function(user, gid, transaction){
-        return new Promise(function(resolve, reject){
-            user.getGroups({
-                where : {
-                    id : gid
-                },
-                transaction: transaction,
-		lock : transaction.LOCK.UPDATE
-            }).then(function(groups){
-                if(groups.length === 0){
-		    throw AppError.throwAppError(404, "Not exist group");
-                }
-                resolve(groups[0]);
-            }).catch(function(err){
-		if(err.isAppError){
-		    reject(err);
-		} else {
-		    reject(AppError.throwAppError(500, err.toString()));
-		}
-            });
+        return user.getGroups({
+            where : {
+                id : gid,
+		isAlive : true
+            },
+            transaction: transaction,
+	    lock : transaction.LOCK.UPDATE
+        }).then(function(groups){
+            if(groups.length === 0){
+		throw AppError.throwAppError(404, "Not exist group");
+            }
+            return groups[0];
         });
     };
 
@@ -123,53 +100,41 @@ module.exports = function(connection){
      */
 
     User.getGroupList = function(user){
-        return new Promise(function(resolve, reject){
-            user.getGroups().then(function(groups){
-                var groupIds = [];
+        return user.getGroups({
+	    where : {
+		isAlive : true
+	    }
+	}).then(function(groups){
+            var groupIds = [];
 
-                groups.forEach(function(group){
-                    groupIds.push(group.id);
-                });
-
-                resolve(groupIds);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-		reject(AppError.throwAppError(500, err.toString()));
+            groups.forEach(function(group){
+                groupIds.push(group.id);
             });
+
+            return groupIds;
         });
     };
 
     User.getAuthInfo = function(user){
-        return new Promise(function(resolve, reject){
-            user.getAuth().then(function(auth){
-                if(!auth){
-                    throw AppError.throwAppError(404, "not exist auth info");
-                }
-                resolve(auth);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-		reject(AppError.throwAppError(500, err.toString()));
-            });
+        return user.getAuth({
+	    where : {
+		isAlive : true
+	    }
+	}).then(function(auth){
+            if(!auth){
+                throw AppError.throwAppError(404, "not exist auth info");
+            }
+            return auth;
         });
-    }
+    };
 
     User.setProfile = function(user, nickname, profilePath){
-        return new Promise(function(resolve, reject){
-            return user.update({
-                nickname : nickname,
-                profilePath : profilePath
-            }).then(function(){
-                resolve();
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-		reject(AppError.throwAppError(500, err.toString()));
-            });
+        return user.update({
+            nickname : nickname,
+            profilePath : profilePath,
+	    updatedAt : Date.now()
+        }).then(function(){
+            return;
         });
     };
 
@@ -178,25 +143,27 @@ module.exports = function(connection){
     };
 
         
-    User.commitApply = function(user, addedPhoto, deletedPhoto, countAddedFileSize, transaction){
-	return new Promise(function(resolve, reject){
-	    return user.update({
-		countAddPhoto : user.countAddPhoto + addedPhoto,
-		countDeletedPhoto : user.countDeletedPhoto + deletedPhoto,
-		usageStorage : user.usageStorage + countAddedFileSize
-	    }, {transaction : transaction}).then(function(){
-		resolve();
-	    });
-	}).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
+    User.commitApply = function(user, transaction){
+	user.updatedAt = Date.now();
+	user.latestReqDate = Date.now();
+	
+	return user.update({
+	    countAddPhoto : user.countAddPhoto,
+	    countDeletedPhoto : user.countDeletedPhoto,
+	    usageStorage : user.usageStorage,
+	    updatedAt : user.updatedAt
+	}, {transaction : transaction}).then(function(){
+	    return;
 	});
     };
 
-
+    User.latestTimestampUpdate = function(user){
+	return user.update({
+	    latestReqDate : Date.now()
+	}, {benchmark : true}).then(function(){
+	    return;
+	});
+    };
 
     return User;
 };
-
