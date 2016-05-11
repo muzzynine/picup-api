@@ -51,14 +51,14 @@ router.post('/', function (req, res) {
     groupController.createGroup(user, groupName, groupColor, db).then(function(group){
         res.status(200);
         res.json({
-            group_id : group.id,
-            group_name : group.groupName,
-            last_mod_date : group.lastModDate,
-            created_date : group.createdDate,
-            revision : group.revision,
-            s3path : group.repository,
-            s3key : "not yet",
-            group_color : group.color
+	    group_id : group.id,
+	    group_name : group.groupName,
+	    last_mod_date : group.lastModDate,
+	    created_date : group.createdDate,
+	    revision : group.revision,
+	    s3path : group.repository,
+	    s3key : "not yet",
+	    group_color : group.color
         });
     }).catch(function(err){
 	log.error("#createGroup", {err:err}, {user : user.id}, {stack:err.stack});
@@ -71,7 +71,8 @@ router.post('/', function (req, res) {
 	}
 
     });
-});
+})
+
 
 
 /**
@@ -110,14 +111,14 @@ router.get('/:gid', function (req, res) {
     groupController.getGroup(user, gid, db).then(function(group){
         res.status(200);
         res.json({
-            group_id: group.id,
-            group_name: group.groupName,
-            revision: group.revision,
-            last_mod_date : group.lastModDate,
-            created_date: group.createdDate,
-            s3key: "not yet",
-            s3path: group.repository,
-            group_color: group.color
+	    group_id: group.id,
+	    group_name: group.groupName,
+	    revision: group.revision,
+	    last_mod_date : group.lastModDate,
+	    created_date: group.createdDate,
+	    s3key: "not yet",
+	    s3path: group.repository,
+	    group_color: group.color
         });
     }).catch(function(err){
 	log.error("#getGroup", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -128,7 +129,6 @@ router.get('/:gid', function (req, res) {
 	    res.status(500);
 	    res.json({});
 	}
-
     });
 });
 
@@ -157,34 +157,38 @@ router.get('/:gid', function (req, res) {
  *
  */
 router.post('/:gid', function (req, res) {
+    var db = req.app.get('models');
+    var amqp = req.app.get('amqp');
+
     var user = req.user;
     var gid = req.params.gid;
     var revision = req.body.revision;
     var commitList = req.body.delta;
 
-    var db = req.app.get('models');
-    var amqp = req.app.get('amqp');
+    groupController.commit2(user, gid, revision, commitList, db, amqp)
+	.spread(function(needBlocks, committedGid, committedRevision, delta){
+	    res.status(200);
+	    res.json({
+		uid: user.id,
+		gid: committedGid,
+		revision: committedRevision,
+		delta: delta,
+		needBlocks : needBlocks
+	    });
+	}).catch(function(err){
+	    log.error("#commit", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	    if(err.isAppError){
+		res.status(err.errorCode);
+		res.json(err);
+	    } else {
+		res.status(500);
+		res.json({});
+	    }
 
-    groupController.commit2(user, gid, revision, commitList, db, amqp).then(function(result){
-        res.status(200);
-        res.json({
-            uid: result[1].uid,
-            gid: result[1].group,
-            revision: result[1].revision,
-            delta: result[1].delta,
-            needBlocks : result[0]
-        });
-    }).catch(function(err){
-	log.error("#commit", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
-	if(err.isAppError){
-	    res.status(err.errorCode);
-	    res.json(err);
-	} else {
-	    res.status(500);
-	    res.json({});
-	}
-    });
-});
+	});
+})
+	    
+	 
 
 
 /**
@@ -212,11 +216,11 @@ router.post('/:gid/member', function (req, res) {
 
     var db = req.app.get('models');
 
-    groupController.addGroupMember(user, gid, db).then(function(result){
+    groupController.addGroupMember(user, gid, db).then(function(group){
         res.status(200);
         res.json({
-            uid : result.uid,
-            group_id : result.gid
+	    uid : user.id,
+	    group_id : group.id
         });
     }).catch(function(err){
 	log.error("#addGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -227,9 +231,8 @@ router.post('/:gid/member', function (req, res) {
 	    res.status(500);
 	    res.json({});
 	}
-
     });
-});
+})
 
 /**
  * @api {post} /group/:gid/members 그룹의 맴버 정보를 제공한다.
@@ -255,14 +258,12 @@ router.get('/:gid/members', function (req, res) {
 
     var db = req.app.get('models');
 
-    /* validation */
-
     groupController.getGroupMember(user, gid, db).then(function(profiles){
         res.status(200);
         res.json({
-            group_id: gid,
-            count: profiles.count,
-            user_info: profiles.userInfo
+	    group_id: gid,
+	    count: profiles.count,
+	    user_info: profiles.userInfo
         });
     }).catch(function(err){
 	log.error("#getGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -307,12 +308,40 @@ router.get('/:gid/delta', function (req, res) {
     var startRev = parseInt(req.query.start_rev);
     var endRev = parseInt(req.query.target_rev);
 
-    groupController.update(user, gid, startRev, endRev, db).then(function(result){
+    try{
+	//Start revision에 0이 올 경우 !startRev에 포함되므로, null임을 체크한다.
+	if (startRev === null || !endRev) {
+            throw AppError.throwAppError(400, "Start revision or end revision is null. is wrong argument");
+	}
+
+	//Strat revision보다 end revision이 클 수 없다.
+	if (startRev > endRev) {
+            throw AppError.throwAppError(400, "End revision is greater than start revision. is wrong argument");
+	}
+    } catch(err){
+	log.error("#update", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
+	res.status(500);
+	res.json({});
+	return;
+    }
+
+    // 그룹 확인보다 같은 경우의 fast return이 먼저 있다. 
+    if(startRev == endRev){
+	res.status(200);
+	res.json({
+	    gid: gid,
+	    revision : startRev,
+	    delta : []
+	});
+	return;
+    }
+	
+    groupController.update(user, gid, startRev, endRev, db).spread(function(group, delta){
         res.status(200);
         res.json({
-            gid: result.gid,
-            revision: result.revision,
-            delta: result.delta
+	    gid: group.id,
+	    revision: group.revision,
+	    delta: delta
         });
     }).catch(function(err){
 	log.error("#update", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -323,7 +352,6 @@ router.get('/:gid/delta', function (req, res) {
 	    res.status(500);
 	    res.json({});
 	}
-
     });
 });
 
@@ -354,13 +382,11 @@ router.post('/:gid/name', function (req, res) {
 
     var db = req.app.get('models');
 
-    /* authentication */
-
     groupController.updateGroupName(user, gid, groupName, db).then(function(group){
         res.status(200);
         res.json({
-            group_id : group.id,
-            group_name : group.name
+	    group_id : group.id,
+	    group_name : group.name
         });
     }).catch(function(err){
 	log.error("#modifyGroupName", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -399,13 +425,11 @@ router.delete('/:gid', function (req, res) {
 
     var db = req.app.get('models');
 
-    /* authenticate */
-
-    groupController.deleteGroupMember(user, gid, db).then(function(result){
+    groupController.deleteGroupMember(user, gid, db).spread(function(uid, gid){
         res.status(200);
         res.json({
-            uid : result.uid,
-            gid : result.gid
+	    uid : uid,
+	    gid : gid
         });
     }).catch(function(err){
 	log.error("#deleteGroupMember", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
@@ -440,13 +464,9 @@ router.get('/:gid/invite', function (req, res) {
     var user = req.user;
 
     var db = req.app.get('models');
-
-    groupController.getInviteUrl(user, gid, db).then(function(url){
-        res.status(200);
-        res.json({
-            invite_url : url
-        });
-    }).catch(function(err){
+    try{
+	var inviteUrl = groupController.getInviteUrl(user, gid, db);
+    } catch(err){
 	log.error("#getInviteUrl", {err:err}, {user : user.id}, {group : gid}, {stack:err.stack});
 	if(err.isAppError){
 	    res.status(err.errorCode);
@@ -455,6 +475,11 @@ router.get('/:gid/invite', function (req, res) {
 	    res.status(500);
 	    res.json({});
 	}
+	return;
+    };
+    res.status(200);
+    res.json({
+        invite_url : inviteUrl
     });
 });
 

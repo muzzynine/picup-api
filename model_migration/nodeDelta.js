@@ -16,31 +16,24 @@ var log = bunyan.getLogger('DataModelLogger');
 var NUMBER_OF_REQUEST_CONCURRENCY = 100;
 
 NodeDelta.getNodeDeltaByNidAndRevBatch = function(nodesArray){
-    return new Promise(function(resolve, reject){
-	var keyChunk = _.chunk(nodesArray, NUMBER_OF_REQUEST_CONCURRENCY);
-	var jobs = [];
-	
-	_.forEach(keyChunk, function(keyArray){
-	    jobs.push(NodeDelta.batchGet(keyArray))
-	});
+    var keyChunk = _.chunk(nodesArray, NUMBER_OF_REQUEST_CONCURRENCY);
+    var jobs = [];
+    
+    _.forEach(keyChunk, function(keyArray){
+	jobs.push(NodeDelta.batchGet(keyArray))
+    });
 
-	Promise.settle(jobs).then(function(results){
-	    var found = [];
+    return Promise.settle(jobs).then(function(results){
+	var found = [];
 
-	    _.forEach(results, function(result){
-		if(result.isFulfilled()){
-		    found = _.concat(found, result.value());
-		} else {
-		    throw result.reason();
-		}
-	    });
-	    resolve(found);
-	}).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
+	_.forEach(results, function(result){
+	    if(result.isFulfilled()){
+		found = _.concat(found, result.value());
+	    } else {
+		throw result.reason();
 	    }
-	    reject(AppError.throwAppError(500, err.toString()));
 	});
+	return found;
     });
 };
 	    
@@ -48,45 +41,37 @@ NodeDelta.getNodeDeltaByNidAndRevBatch = function(nodesArray){
  * addNodeDelta를 병렬적으로 일어나도록 한다.
  */
 NodeDelta.addNodeDeltaBatch = function(nodeArray){
-    return new Promise(function(resolve, reject){
+    var nodeDeltaArray = [];
 
-        var nodeDeltaArray = [];
+    _.forEach(nodeArray, function(node){
+        var nodeDelta = {
+            nid : node.nid,
+            revision : node.revision,
+            presence : node.presence,
+            s3Path : node.s3Path,
+            s3ThumbnailPath : node.s3ThumbnailPath,
+            name : node.name,
+            owner : node.owner,
+            updatedDate : node.updatedDate,
+            createdDate : node.createdDate
+        };
+        nodeDeltaArray.push(nodeDelta);
+    });
 
-        _.forEach(nodeArray, function(node){
-            var nodeDelta = {
-                nid : node.nid,
-                revision : node.revision,
-                presence : node.presence,
-                s3Path : node.s3Path,
-                s3ThumbnailPath : node.s3ThumbnailPath,
-                name : node.name,
-                owner : node.owner,
-                updatedDate : node.updatedDate,
-                createdDate : node.createdDate
-            };
-            nodeDeltaArray.push(nodeDelta);
+    var deltaChunk = _.chunk(nodeDeltaArray, NUMBER_OF_REQUEST_CONCURRENCY);
+    var jobs = [];
+
+    _.forEach(deltaChunk, function(chunk){
+        jobs.push(NodeDelta.batchPut(chunk));
+    });
+
+    return Promise.settle(jobs).then(function(results){
+        _.forEach(results, function(result){
+            if(!result.isFulfilled()){
+                throw result.reason();
+            }
         });
-
-        var deltaChunk = _.chunk(nodeDeltaArray, NUMBER_OF_REQUEST_CONCURRENCY);
-        var jobs = [];
-
-        _.forEach(deltaChunk, function(chunk){
-            jobs.push(NodeDelta.batchPut(chunk));
-        });
-
-        Promise.settle(jobs).then(function(results){
-            _.forEach(results, function(result){
-                if(!result.isFulfilled()){
-                    throw result.reason();
-                }
-            });
-            resolve(nodeDeltaArray);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
-        });
+        return nodeDeltaArray;
     });
 };
 

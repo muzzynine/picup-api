@@ -14,12 +14,19 @@ var bunyan = require('bunyan');
 var log = bunyan.getLogger('MainLogger');
 var AppError = require('./lib/appError');
 var GCMPusher = require('./amqp/amqp');
+var SessionStore = require('./lib/session');
+var Promise = require('bluebird');
 
 var app = express();
 
 if(process.env.NODE_ENV == 'development'){
     console.log("Server running Development Mode");
     app.use(require('morgan')('dev'));
+
+    //Sequelize query log printed std out
+    Promise.config({
+	warnings : false
+    }); 
 } else if(process.env.NODE_ENV == 'production'){
     console.log("Server running Production Mode");
     process.on('uncaughtException', function(err){
@@ -28,12 +35,13 @@ if(process.env.NODE_ENV == 'development'){
 }
 
 app.set('models', require('./model_migration'));
+//session setup
+//app.set('session', new SessionStore(config.SESSION));
 
 GCMPusher.init(app.get('models'));
 GCMPusher.connect();
 
 app.set('amqp', GCMPusher);
-
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -51,6 +59,12 @@ app.use(bodyParser.urlencoded({extended : false}));
 
 app.use(passport.initialize());
 
+app.get('/health', function(req, res, next(){
+    res.status(200);
+    res.json({});
+    return;
+});
+
 var auth = require('./lib/auth');
 auth.setPassportStrategy();
 
@@ -59,3 +73,13 @@ app.use('/api', apiRouter);
 
 log.info("Picup API server listening...");
 app.listen(8090);
+
+
+
+
+
+
+
+
+
+

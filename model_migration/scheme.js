@@ -14,24 +14,30 @@ module.exports = {
      * latestReqDate : 사용자 최종 요청 시간
      * countAddCommit : 유저가 커밋한 Presence Add 카운트
      */
-    
+         
     USER : {
         TABLE : "user",
         SCHEME : {
             id : {type: Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey : true, field:'id'},
-	    mail : {type: Sequelize.STRING(50), allowNull: true, field: 'mail'},
+	    mail : {type: Sequelize.STRING(50), defaultValue: "unknown", allowNull: false, field: 'mail'},
 	    sex : {type: Sequelize.ENUM('male', 'female', 'unknown'), allowNull: false, field:'sex'},
-	    birth : {type: Sequelize.BIGINT, allowNull: true, field: 'birth'},
-	    phoneNumber : {type: Sequelize.STRING(20), allowNull: true, field: 'phoneNumber'},
+	    birth : {type: Sequelize.BIGINT, defaultValue: 0, allowNull: false, field: 'birth'},
+	    phoneNumber : {type: Sequelize.STRING(20), defaultValue : "unknown", allowNull: false , field: 'phoneNumber'},
             nickname : { type : Sequelize.STRING(40), allowNull: false, field: 'nickname'},
             profilePath : { type : Sequelize.STRING(150), allowNull: false, field: 'profilePath'},
 	    latestReqDate : { type : Sequelize.BIGINT, defaultValue: Date.now(), allowNull : false, field: 'latestReqDate'},
 	    countAddPhoto : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'countAddPhoto'},
 	    countDeletedPhoto : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'countDeletedPhoto'},
-	    usageStorage : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'usageStorage'}
+	    usageStorage : { type : Sequelize.BIGINT, defaultValue: 0, allowNull : false, field: 'usageStorage'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false,  field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'},
+	    deleteReason : { type : Sequelize.STRING(150), field: 'deleteReason'}
         },
 	OPTION : {
-	    tableName : "users"
+	    tableName : "users",
+	    timestamps : false
 	}
     },
 
@@ -58,10 +64,15 @@ module.exports = {
             lastModDate : { type : Sequelize.BIGINT, defaultValue: Date.now(), allowNull : false, field: 'lastModDate'},
 	    countPhoto : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'countPhoto'},
 	    countAlbum : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'countAlbum'},
-	    usageStorage : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'usageStorage'}
+	    usageStorage : { type : Sequelize.BIGINT, defaultValue : 0, allowNull : false, field: 'usageStorage'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
         },
 	OPTION : {
-	    tableName : "groups"
+	    tableName : "groups",
+	    timestamps : false
 	}
     },
 
@@ -70,11 +81,14 @@ module.exports = {
         SCHEME : {
             id : { type : Sequelize.UUID, defaultValue:Sequelize.UUIDV1, primaryKey: true, field: 'id'},
             revision : { type : Sequelize.BIGINT, allowNull: false, field: 'revision'},
-            data : { type : Sequelize.TEXT, field: 'data'}
+            data : { type : Sequelize.TEXT, field: 'data'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
         },
 	OPTION : {
 	    tableName : "delta",
-	    updatedAt : false
+	    timestamps : false
 	}
     },
 
@@ -84,10 +98,15 @@ module.exports = {
             id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field: 'id'},
             authId : {type : Sequelize.STRING(40), allowNull: false, field: 'authId'},
             authType : { type: Sequelize.ENUM('kakao', 'facebook'), allowNull: false, field: 'authType'},
-	    isBan : {type : Sequelize.BOOLEAN, defaultValue: false, allowNull: false, field: 'isBan'}
+	    isBan : {type : Sequelize.BOOLEAN, defaultValue: false, allowNull: false, field: 'isBan'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
         },
 	OPTION : {
-	    tableName : "auths"
+	    tableName : "auths",
+	    timestamps : false
 	}
     },
 
@@ -97,10 +116,15 @@ module.exports = {
 	    id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field: 'id'},
 	    banReason : { type : Sequelize.STRING(100), defaultValue: "", allowNull: false, field: 'banReason'},
 	    banStartDate : { type : Sequelize.BIGINT, allowNull : false, field: 'banStartDate'},
-	    banDuration : { type : Sequelize.BIGINT, allowNull : false, field: 'banDuration'}
+	    banDuration : { type : Sequelize.BIGINT, allowNull : false, field: 'banDuration'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
 	},
 	OPTION : {
-	    tableName : "banInfos"
+	    tableName : "banInfos",
+	    timestamps : false
 	}
     },
 
@@ -112,10 +136,15 @@ module.exports = {
             accessToken : { type : Sequelize.STRING, allowNull: false, field: 'accessToken'},
             refreshToken : { type : Sequelize.STRING, allowNull: false, field : 'refreshToken'},
             expiredIn : { type : Sequelize.BIGINT, allowNull: false, field : 'expiredIn'},
-            createdTime : { type : Sequelize.BIGINT, allowNull : false, field : 'createdTime'}
+            createdTime : { type : Sequelize.BIGINT, allowNull : false, field : 'createdTime'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
         },
 	OPTION : {
-	    tableName : "accessTokens"
+	    tableName : "accessTokens",
+	    timestamps : false
 	}
     },
 
@@ -124,10 +153,16 @@ module.exports = {
         SCHEME : {
             id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field:'id'},
             clientId : { type : Sequelize.STRING, allowNull: false, field:'clientId'},
-            clientSecret : { type : Sequelize.STRING, allowNull: false, field:'clientSecret'}
+            clientSecret : { type : Sequelize.STRING, allowNull: false, field:'clientSecret'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
+
         },
 	OPTION : {
-	    tableName : "clients"
+	    tableName : "clients",
+	    timestamps : false
 	}
     },
 
@@ -135,10 +170,15 @@ module.exports = {
         TABLE : "pushRegistration",
         SCHEME : {
             id : { type : Sequelize.BIGINT, autoIncrement: true, primaryKey: true, field:'id'},
-            registrationId : { type : Sequelize.STRING, allowNull : false, field:'registrationId'}
+            registrationId : { type : Sequelize.STRING, allowNull : false, field:'registrationId'},
+	    isAlive : { type : Sequelize.BOOLEAN, defaultValue : true, allowNull : false, field: 'isAlive'},
+	    createdAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'createdAt'},
+	    updatedAt : { type : Sequelize.BIGINT, defaultValue : Date.now(), allowNull : false, field: 'updatedAt'},
+	    deletedAt : { type : Sequelize.BIGINT, allowNull : true, field: 'deletedAt'}
         },
 	OPTION : {
-	    tableName : "pushRegistrations"
+	    tableName : "pushRegistrations",
+	    timestamps : false
 	}
     },
 
@@ -147,7 +187,7 @@ module.exports = {
         SCHEME : {
             gid : { type : String, hashKey: true },
             nid : { type : String, rangeKey: true },
-            relPath : { type : String, required : true, index: { global:false, rangeKey:'gid', name:'gid-relPath-index', project: true, throughput: 1} },
+            relPath : { type : String, required : true},
             kind : { type : String, required : true },
             author : { type : String, required : true },
             uploadedDate : { type : Number },

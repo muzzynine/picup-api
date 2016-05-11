@@ -9,8 +9,8 @@ module.exports = {
 		*/
 	name: 'picup-api',
 	version: ["0.0.1"],
-	addr : 'http://54.238.255.69',
-	port : '8090',
+	addr : 'internal-picup-api-elb-220257608.ap-northeast-1.elb.amazonaws.com',
+	port : '80',
 	url : {
 	    group : '/api/group'
 	},
@@ -30,10 +30,16 @@ module.exports = {
     },
 
     authServer: {
-	addr : '54.238.255.255',
-	port : '8110',
+	addr : 'internal-picup-auth-elb-1133570721.ap-northeast-1.elb.amazonaws.com',
+	port : '80',
 	authPath : '/verify/token'
     },
+
+    SESSION : {
+	url : 'redis://picup-session.ui4wps.0001.apne1.cache.amazonaws.com:6379',
+	disableTTL : true
+    },
+
 
     DB: {
 	MYSQL:{

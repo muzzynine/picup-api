@@ -9,6 +9,7 @@ var config = require('../config/config');
 var AppError = require('../lib/appError');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('AMQPLogger');
+var sqs = require('sqs');
 
 var RECONNECT_TIMEOUT = 5000;
 
