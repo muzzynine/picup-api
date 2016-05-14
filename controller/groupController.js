@@ -154,7 +154,7 @@ var deleteGroupMember = function(user, gid, db){
 *
 * 위의 3단계를 문제없이 완료하여야 커밋이 이루어진다.
 */
-var commit2 = function(user, gid, revision, deltaArray, db, amqp){
+var commit2 = function(user, gid, revision, deltaArray, db, mq){
 
     /*
      * deltaArray로부터 Node의 연산을 위한 NodeInfo를 만듬
@@ -204,29 +204,30 @@ var commit2 = function(user, gid, revision, deltaArray, db, amqp){
 		this.group,
 		[]
 	    ]
-	}
-	
-	return commitInternal2(user, this.group, commitList, db);
-    }).spread(function(committedGroup, delta){
-	var self = this;
-	/*
-	 * 커밋이 완료된 후에 유저정보가 바뀌었기 떄문에 세션에서 해당 유저의 정보를 삭제한다.
-	 * 이후 요청시 다시 인증서버로부터 세션에 세팅될 것이다.
-	 * 또한 클라이언트에게 커밋사실을 알리기 위해 amqp 메시지큐로 커밋 상태 메시지를 보낸다.
-	 * 이 두가지 작업은 성공/실패를 따로 핸들링 하지 않는다. 
-	 * 즉 실패하더라도 클라이언트 응답에 아무런 문제가 없다.
-	 */
-	return Group.getMemberList(committedGroup).then(function (members) {
-	    var uids = [];
-	    members.forEach(function (member) {
-		if(self.user.id !== member.id) uids.push(member.id);
+	} else {
+	    return commitInternal2(user, this.group, commitList, db).spread(function(committedGroup, delta){
+		var self = this;
+		/*
+		 * 커밋이 완료된 후에 유저정보가 바뀌었기 떄문에 세션에서 해당 유저의 정보를 삭제한다.
+		 * 이후 요청시 다시 인증서버로부터 세션에 세팅될 것이다.
+		 * 또한 클라이언트에게 커밋사실을 알리기 위해 메시지큐로 커밋 상태 메시지를 보낸다.
+		 * 이 두가지 작업은 성공/실패를 따로 핸들링 하지 않는다. 
+		 * 즉 실패하더라도 클라이언트 응답에 아무런 문제가 없다.
+		 */
+		return Group.getMemberList(committedGroup).then(function (members) {
+		    var uids = [];
+		    members.forEach(function (member) {
+			if(self.user.id !== member.id) uids.push(member.id);
+		    });
+		    if(uids === 0) return;
+		    else return mq.sendCommitMessage(uids, committedGroup.id);
+		}).then(function(){
+		    return [committedGroup, delta];
+		}).catch(function(){
+		    return [committedGroup, delta];
+		});
 	    });
-	    return amqp.sendCommitMessage(uids, committedGroup.id);
-	}).then(function(){
-	    return [committedGroup, delta];
-	}).catch(function(){
-	    return [committedGroup, delta];
-	});
+	}
     }).spread(function(committedGroup, delta){
 	return [this.needBlocks, committedGroup.id, committedGroup.revision, delta];
     });
