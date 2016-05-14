@@ -12,7 +12,7 @@ module.exports = {
 	},
 
 	//in develop enviroment, just indirect to api endpoint.
-	reverse_proxy : {
+	reverseProxy : {
 	    addr : 'http://192.168.123.100',
 	    port : '8000'
 	}
@@ -25,15 +25,21 @@ module.exports = {
 	profileBucket : "bigfrog.picup.profile"
     },
 
-    auth_server: {
+    authServer: {
 	addr : '192.168.123.100',
 	port : '8110',
 	authPath : '/verify/token'
     },
 
+    SESSION : {
+	url : 'redis://picup-session.ui4wps.0001.apne1.cache.amazonaws.com:6379',
+	//develop option
+	disableTTL : false
+    },
+	
     DB: {
 	MYSQL:{
-	    HOST : 'bigfrfog-picup.cpcmirt0kyjt.ap-northeast-2.rds.amazonaws.com',
+	    HOST : 'picup.cluster-cqm2majqgqx4.ap-northeast-1.rds.amazonaws.com',
 	    DATABASE : 'picup',
 	    PROTOCOL: 'mysql',
 	    PORT: 3306,
@@ -48,5 +54,18 @@ module.exports = {
 	QUEUE : {
 	    name : "picup"
 	}
+    },
+
+    AWS : {
+	region : 'ap-northeast-1'
+    },
+
+    MQ : {
+	awsConfig : {
+	    region : 'ap-northeast-1'
+	},
+	queueName : 'picup-mq',
+	queueUrl : 'https://sqs.ap-northeast-1.amazonaws.com/063860250091/picup-mq',
+	bodyFormat : 'json'
     }
 };

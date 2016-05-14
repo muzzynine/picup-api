@@ -9,14 +9,14 @@ module.exports = {
 		*/
 	name: 'picup-api',
 	version: ["0.0.1"],
-	addr : 'http://54.238.255.69',
-	port : '8090',
+	addr : 'internal-picup-api-elb-220257608.ap-northeast-1.elb.amazonaws.com',
+	port : '80',
 	url : {
 	    group : '/api/group'
 	},
 
 	//in develop enviroment, just indirect to api endpoint.
-	reverse_proxy : {
+	reverseProxy : {
 	    addr : 'http://h3.bigfrogcorp.com',
 	    port : '80'
 	}
@@ -29,15 +29,21 @@ module.exports = {
 	profileBucket : "bigfrog.picup.profile"
     },
 
-    auth_server: {
-	addr : '54.238.255.255',
-	port : '8110',
+    authServer: {
+	addr : 'internal-picup-auth-elb-1133570721.ap-northeast-1.elb.amazonaws.com',
+	port : '80',
 	authPath : '/verify/token'
     },
 
+    SESSION : {
+	url : 'redis://picup-session.ui4wps.0001.apne1.cache.amazonaws.com:6379',
+	disableTTL : true
+    },
+
+
     DB: {
 	MYSQL:{
-	    HOST : 'bigfrfog-picup.cpcmirt0kyjt.ap-northeast-2.rds.amazonaws.com',
+	    HOST : 'picup.cluster-cqm2majqgqx4.ap-northeast-1.rds.amazonaws.com',
 	    DATABASE : 'picup',
 	    PROTOCOL: 'mysql',
 	    PORT: 3306,
@@ -46,11 +52,12 @@ module.exports = {
 	}
     },
 
-    AMQP : {
-	amqpAddr: "amqp://bigfrogcorp.com:5672",
-
-	QUEUE : {
-	    name : "picup-notification-gcm-1"
-	}
+    MQ : {
+	awsConfig : {
+	    region : 'ap-northeast-1'
+	},
+	queueName : 'picup-mq',
+	queueUrl : 'https://sqs.ap-northeast-1.amazonaws.com/063860250091/picup-mq',
+	bodyFormat : 'json'
     }
 };

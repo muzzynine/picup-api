@@ -1,3 +1,4 @@
+
 /**
  * Created by impyeong-gang on 1/11/16.
  */
@@ -8,168 +9,136 @@ var Promise = require('bluebird');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('DataModelLogger');
 
-var HOST_URI = config.server.reverse_proxy.addr + ":" + config.server.reverse_proxy.port;
+var HOST_URI = config.server.reverseProxy.addr + ":" + config.server.reverseProxy.port;
 var BUCKET_INFO = config.S3.originalBucket;
 
 module.exports = function(connection){
-    var Group = connection.define(GroupScheme.TABLE, GroupScheme.SCHEME,
-        {
-            instanceMethods: {
-                countTask: function(){
+    var Group = connection.define(GroupScheme.TABLE, GroupScheme.SCHEME, GroupScheme.OPTION);
 
-                }
-            }
-        });
-
+    /*
+      * 그룹을 추가한다.
+      * 
+      * @param String {name} 생성할 그룹의 이름
+      * @param Number {color} 생성할 그룹의 그룹 컬러
+      * @param transaction {Sequelize.Transaction} 트랜잭션 인스턴스
+      */
+      
     Group.createGroup = function(name, color, transaction){
-        return new Promise(function(resolve, reject){
-            return Group.create({
-                group_name : name,
-                revision : 0,
-                created_date : Date.now(),
-                last_mod_date : Date.now(),
-                repository : BUCKET_INFO,
-                color : color
-            }, {transaction: transaction}).then(function(group){
-                resolve(group);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-                reject(AppError.throwAppError(500, err.toString()));
-            });
-        })
+        return Group.create({
+            groupName : name,
+            revision : 0,
+            createdDate : Date.now(),
+            lastModDate : Date.now(),
+            repository : BUCKET_INFO,
+            color : color
+        }, {transaction: transaction, benchmark : true}).then(function(group){
+            return group;
+        });
     };
+
+    /* 
+     * 그룹과 연결되는 새로운 리비전의 델타를 생성한다.
+     * 저장하고자 하는 델타 정보는 JSON 포맷의 String으로 변경하여 저장한다.
+     *
+     * @param Object {group} 델타를 만들고핮 하는 그룹
+     * @param Number {revision} 생성될 델타의 리비전
+     * @param Object {data} 새로운 델타가 보관하고자 하는 델타 정보 
+     */
 
     Group.createDeltaWithTransaction = function(group, revision, data, transaction){
-        return new Promise(function(resolve, reject){
-            var formattedData = JSON.stringify(data);
-            return group.createDelta({
-                revision : revision,
-                data : formattedData
-            }, {transaction : transaction}).then(function(delta){
-                resolve(delta);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-		reject(AppError.throwAppError(500, err.toString()));
-            });
-        })
-    };
-
-    Group.commitApply = function(group, revision, transaction){
-        return new Promise(function(resolve, reject){
-            return group.update({
-                revision : revision
-            }, {transaction : transaction}).then(function(){
-                resolve();
-            }).catch(function(err){
-                log.error("Group#commitApply/Internal Database(RDBMS) error", {err :err});
-                reject(AppError.throwAppError(500));
-            })
-        })
-    };
-
-    Group.commitApply2 = function(group, revision, commitNodeInfo, countAlbum, countPhoto, usageStorage, transaction){
-        return new Promise(function(resolve, reject){
-            Group.createDeltaWithTransaction(group, revision, commitNodeInfo, transaction).then(function(delta){
-                return group.update({
-		    countPhoto: group.countPhoto += countPhoto,
-		    countAlbum: group.countAlbum += countAlbum,
-		    usageStorage: group.usageStorage += usageStorage,
-                    revision: revision
-                }, {transaction : transaction}).then(function(){
-                    resolve();
-                });
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-		reject(AppError.throwAppError(500, err.toString()));
-            });
+        var formattedData = JSON.stringify(data);
+        return group.createDelta({
+            revision : revision,
+            data : formattedData
+        }, {transaction : transaction, benchmark : true}).then(function(delta){
+            return delta;
         });
     };
 
-    Group.findGroupById = function(gid){
-        return new Promise(function(resolve, reject){
-            return Group.findById(gid).then(function(group){
-                if(!group){
-                    throw AppError.throwAppError(404, "Not exist group");
-                }
-                resolve(group);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-                reject(AppError.throwAppError(500, err.toString()));
+    /* 
+     * 커밋하고자 하는 델타를 받아 이를 가지고 DB에 적용한다.
+     *
+     * @param Object {group} 커밋하고자 하는 그룹
+     * @param Number {revision} 커밋하고자 하는 리비전(Target revision)
+     * @param Object {commitNodeInfo} 커밋하고자 하는 델타 정보
+     * @param Number {countAlbum} 해당 커밋에서 앨범의 증감분
+     * @param Number {countPhoto} 해당 커밋에서 사진의 증감분
+     * @param Number {usageStorage} 해당 커밋에서 사용하는 용량의 증감분
+     */
+    Group.commitApply2 = function(group, commitNodeInfo, transaction){
+	group.revision += 1;
+	
+        return Group.createDeltaWithTransaction(group, group.revision, commitNodeInfo, transaction).then(function(delta){
+            return group.update({
+		countPhoto: group.countPhoto,
+		countAlbum: group.countAlbum,
+		usageStorage: group.usageStorage,
+                revision: group.revision,
+		lastModDate : Date.now(),
+		updatedAt : Date.now()
+            }, {transaction : transaction, benchmark : true}).then(function(){
+                return;
             });
-
         })
     };
+
+    /* 
+     * gid로 그룹의 instance를 가져온다.
+     *
+     * @param String {gid} 그룹의 unique한 primary key
+     */
+    Group.findGroupById = function(gid){
+        return Group.findOne({
+	    where : {
+		id : gid,
+		isAlive : true
+	    }
+	}).then(function(group){
+            if(!group){
+                throw AppError.throwAppError(404, "Not exist group");
+            }
+            return group;
+        });
+    };
+
+    /*
+     * 그룹의 이름을 변경한다.
+     *
+     * @param Object {group} 변경하고자 하는 그룹의 인스턴스
+     * @param String {newName} 변경하고자 하는 이름
+     */
 
     Group.updateGroupName = function(group, newName){
-        return new Promise(function(resolve, reject){
-            return group.update({
-                group_name : newName
-            }).then(function(){
-		group.group_name = newName
-                resolve(group);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-                reject(AppError.throwAppError(500, err.toString()));
-            });
+        return group.update({
+            groupName : newName,
+	    updatedAt : Date.now()
+        }).then(function(){
+	    group.groupName = newName
+            return group;
         });
     };
 
-    Group.getMemberList = function(gid){
-        return new Promise(function(resolve, reject){
-            return Group.findGroupById(gid).then(function(group){
-                group.getUsers().then(function(users){
-                    resolve(users);
-                });
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-                reject(AppError.throwAppError(500, err.toString()));
-            });
-	});
+    /* 
+     * 그룹의 맴버 리스르를 얻는다.
+     * 
+     * @param String {gid} 맴버를 얻고자 하는 그룹의 primary key
+     */
+    Group.getMemberList = function(group){
+        return group.getUsers({
+	    where : {
+		isAlive : true
+	    }
+	}).then(function(users){
+            return users;
+        });
     };
 
-    Group.addMember = function(gid, user, fn){
-        return new Promise(function(resolve, reject){
-            return Group.authenticate(gid, user.id).then(function(group){
-                group.addUser(user).then(function(){
-                    resolve(group);
-                }).catch(function(err){
-                    log.error("Group#addMember/Internal Database(RDBMS) error", {err :err});
-                    reject(AppError.throwAppError(500));
-                })
-            }).catch(function(err){
-                reject(err);
-            })
-        })
-    };
-
-    Group.deleteMember = function(gid, user, fn){
-        return new Promise(function(resolve, reject){
-            return Group.findById(gid).then(function(group){
-                if(!group){
-                    return reject(AppError.throwAppError(404));
-                }
-                return group.removeUser(user).then(function(){
-                    resolve(group);
-                }).catch(function(err){
-                    log.error("Group#deleteMember/Internal Database(RDBMS) error", {err :err});
-                    reject(AppError.throwAppError(500));
-                })
-            })
-        })
-    };
-
+    /*
+     * 그룹에 대한 초대링크를 얻는다.
+     *
+     * @param String {uid} 초대링크를 얻은 유저의 primary key
+     * @param String {gid} 초대링크를 발급하고자 하는 그룹의 primary key
+     */
     Group.getInviteUrl = function(uid, gid) {
         var baseUrl = HOST_URI;
         baseUrl += "/api/invite";
@@ -179,128 +148,61 @@ module.exports = function(connection){
         return baseUrl;
     };
 
+    /*
+     * 그룹 맴버들의 프로필을 얻는다.
+     *
+     * @param Object {group} 맴버들의 프로필을 얻고자 하는 그룹의 인스턴스
+     */
+    
     Group.getMemberProfile = function(group){
-        return new Promise(function(resolve, reject){
-            //권한 체크 안함
-            group.getUsers().then(function(users){
-                var result = {
-                    count : 0,
-                    user_info : []
-                };
-                users.forEach(function(user){
-                    result.count++;
-                    result.user_info.push({
-                        uid : user.id,
-                        nickname : user.nickname,
-                        pic_s3path : user.profile_path
-                    });
+	return Group.getMemberList(group).then(function(users){
+            var result = {
+                count : 0,
+                userInfo : []
+            };
+            users.forEach(function(user){
+                result.count++;
+                result.userInfo.push({
+                    uid : user.id,
+                    nickname : user.nickname,
+                    pic_s3path : user.profilePath
                 });
-                resolve(result);
-            }).catch(function(err){
-		if(err.isAppError){
-		    return reject(err);
-		}
-                reject(AppError.throwAppError(500, err.toString()));
             });
+            return result;
         });
     };
 
-    Group.getDeltaByGidAndRevision = function(gid, rev, fn){
-        return new Promise(function(resolve, reject){
-            return Group.findGroupById(gid).then(function(group){
-                group.getDeltas({
-                    where : {
-                        revision : rev
-                    }
-                }).then(function(deltas){
-                    if(deltas.length === 0){
-                        return reject(AppError.throwAppError(404));
-                    }
-                    resolve(deltas[0]);
-                });
-            }).catch(function(err){
-                log.error("Group#getDeltaByGidAndRevision/Internal Database(RDBMS) error", {err :err});
-                reject(err);
-            });
-        })
-    };
-
+    /* 
+     * forward와 backward로 구분되어있는 reivison의 Array를 받아 
+     * revision에 맞는 델타의 배열을 리턴한다.
+     * 
+     * traversalInfo = { backward : Array<Number>, forward : Array<Number>}
+     * return { backward : Array<Object>, forward : Array<Object>}
+     *
+     * @param Object {group} 델타를 얻고자 하는 그룹의 인스턴스
+     * @param Object {traversalInfo} backward와 forward의 리비전이 담긴 어레이를 포함하는 오브젝트
+     */
     Group.getDeltaSet = function(group, traversalInfo){
-        return new Promise(function(resolve, reject){
-            if (traversalInfo.backward.length > 0 && traversalInfo.forward.length > 0) {
-                group.getDeltas({
-                    where: {
-                        revision: {
-                            $in: traversalInfo.backward
-                        }
+        if (traversalInfo.backward.length > 0 && traversalInfo.forward.length > 0) {
+            return group.getDeltas({
+                where: {
+		    isAlive : true,
+                    revision: {
+                        $in: traversalInfo.backward
                     }
-                }).then(function (backwards) {
-                    if (backwards.length !== traversalInfo.backward.length) {
-			throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
-                    }
+                }
+            }).then(function (backwards) {
+                if (backwards.length !== traversalInfo.backward.length) {
+		    throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
+                }
 
-                    //Delta serialize (JSON -> Array)
-                    backwards.forEach(function (bDelta) {
-                        bDelta.data = JSON.parse(bDelta.data);
-                    });
-
-                    group.getDeltas({
-                        where: {
-                            revision: {
-                                $in: traversalInfo.forward
-                            }
-                        }
-                    }).then(function (forwards) {
-                        if (forwards.length !== traversalInfo.forward.length) {
-			    throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
-                        }
-
-                        //Delta serialize (JSON -> Array)
-                        forwards.forEach(function (fDelta) {
-                            fDelta.data = JSON.parse(fDelta.data);
-                        });
-
-                        resolve({
-                            backward: backwards,
-                            forward: forwards
-                        });
-                    });
-                }).catch(function (err) {
-		    if(err.isAppError){
-			return reject(err);
-		    }
-		    reject(AppError.throwAppError(500, err.toString()));
+                //Delta serialize (JSON -> Array)
+                backwards.forEach(function (bDelta) {
+                    bDelta.data = JSON.parse(bDelta.data);
                 });
-		
-            } else if (traversalInfo.backward.length > 0 && !(traversalInfo.forward.length > 0)) {
-                group.getDeltas({
-                    where: {
-                        revision: {
-                            $in: traversalInfo.backward
-                        }
-                    }
-                }).then(function (backwards) {
-                    if (backwards.length !== traversalInfo.backward.length) {
-			throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
-                    }
 
-                    backwards.forEach(function (bDelta) {
-                        bDelta.data = JSON.parse(bDelta.data);
-                    });
-
-                    resolve({
-                        backward: backwards,
-                        forward: []
-                    });
-
-                }).catch(function (err) {
-		    if(err.isAppError){
-			return reject(err);
-		    }
-		    reject(AppError.throwAppError(500, err.toString()));
-                });
-            } else {
-                group.getDeltas({
+                return group.getDeltas({
+		    isAlive : true,
                     where: {
                         revision: {
                             $in: traversalInfo.forward
@@ -311,127 +213,52 @@ module.exports = function(connection){
 			throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
                     }
 
+                    //Delta serialize (JSON -> Array)
                     forwards.forEach(function (fDelta) {
                         fDelta.data = JSON.parse(fDelta.data);
                     });
 
-                    resolve({
-                        backward: [],
-                        forward: forwards
-                    });
-                }).catch(function (err) {
-		    if(err.isAppError){
-			return reject(err);
-		    }
-		    reject(AppError.throwAppError(500, err.toString()));
+                    return [backwards, forwards]
                 });
-            }
-        });
-    };
-
-
-    Group.getDeltaSetWithTransaction = function(group, traversalInfo, transaction){
-        if(traversalInfo.backward.length > 0 && traversalInfo.forward.length > 0) {
-            return new Promise(function(resolve, reject){
-                return group.getDeltas({
-                    where: {
-                        revision: {
-                            $in: traversalInfo.backward
-                        }
+            });
+        } else if (traversalInfo.backward.length > 0 && !(traversalInfo.forward.length > 0)) {
+            return group.getDeltas({
+                where: {
+		    isAlive : true,
+                    revision: {
+                        $in: traversalInfo.backward
                     }
-                }, {transaction: transaction}).then(function (backwards) {
-                    if (backwards.length !== traversalInfo.backward.length) {
-                        log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err :err}, {group : group.id});
-                        return reject(AppError.throwAppError(500));
-                    }
+                }
+            }).then(function (backwards) {
+                if (backwards.length !== traversalInfo.backward.length) {
+		    throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
+                }
 
-                    //Delta serialize (JSON -> Array)
-                    backwards.forEach(function(bDelta){
-                        bDelta.data = JSON.parse(bDelta.data);
-                    });
+                backwards.forEach(function (bDelta) {
+                    bDelta.data = JSON.parse(bDelta.data);
+                });
 
-                    return group.getDeltas({
-                        where: {
-                            revision: {
-                                $in: traversalInfo.forward
-                            }
-                        }
-                    }).then(function (forwards) {
-                        if (forwards.length !== traversalInfo.forward.length) {
-                            log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err :err}, {group : group.id});
-                            return reject(AppError.throwAppError(500));
-                        }
-                        //Delta serialize (JSON -> Array)
-                        forwards.forEach(function(fDelta){
-                            fDelta.data = JSON.parse(fDelta.data);
-                        });
+                return [backwards, []];
 
-                        return resolve({
-                            backward: backwards,
-                            forward: forwards
-                        });
-                    }).catch(function (err) {
-                        log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err :err});
-                        return reject(AppError.throwAppError(500));
-                    })
-                }).catch(function (err) {
-                    log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err :err});
-                    return reject(AppError.throwAppError(500));
-                })
-            })
-        } else if(traversalInfo.backward.length > 0 && !(traversalInfo.forward.length > 0)){
-            return new Promise(function(resolve, reject){
-                return group.getDeltas({
-                    where : {
-                        revision: {
-                            $in : traversalInfo.backward
-                        }
-                    }
-                }).then(function(backwards){
-                    if(backwards.length !== traversalInfo.backward.length){
-                        log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err :err}, {group : group.id});
-                        return reject(AppError.throwAppError(500));
-                    }
-
-                    backwards.forEach(function(bDelta){
-                        bDelta.data = JSON.parse(bDelta.data);
-                    });
-
-                    return resolve({
-                        backward: backwards,
-                        forward: []
-                    });
-                }).catch(function(err){
-                    log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err :err});
-                    return reject(AppError.throwAppError(500));
-                })
-            })
+            });
         } else {
-            return new Promise(function(resolve, reject){
-                return group.getDeltas({
-                    where : {
-                        revision: {
-                            $in : traversalInfo.forward
-                        }
+            return group.getDeltas({
+		isAlive : true,
+                where: {
+                    revision: {
+                        $in: traversalInfo.forward
                     }
-                }).then(function(forwards){
-                    if(forwards.length !== traversalInfo.forward.length){
-                        log.error("Group#getDeltaSet/DB actually delta info is not equal with expected info", {err :err}, {group : group.id});
-                        return reject(AppError.throwAppError(500));
-                    }
+                }
+            }).then(function (forwards) {
+                if (forwards.length !== traversalInfo.forward.length) {
+		    throw AppError.throwAppError(500, "Actual delta info is not equal with expected as a computed info");
+                }
 
-                    forwards.forEach(function(fDelta){
-                        fDelta.data = JSON.parse(fDelta.data);
-                    });
+                forwards.forEach(function (fDelta) {
+                    fDelta.data = JSON.parse(fDelta.data);
+                });
 
-                    return resolve({
-                        backward: [],
-                        forward: forwards
-                    });
-                }).catch(function(err){
-                    log.error("Group#getDeltaSet/Internal Database(RDBMS) error", {err :err});
-                    return reject(AppError.throwAppError(500));
-                })
+                return [[], forwards];
             });
         }
     };

@@ -15,206 +15,63 @@ var log = bunyan.getLogger('DataModelLogger');
 
 var NUMBER_OF_REQUEST_CONCURRENCY = 100;
 
-/**
- * 노드의 id로 최신 버전의 노드 델타를 얻는다.
- * @param nid
- * @param fn
- */
-NodeDelta.getLatestNodeDelta = function(nid){
-    return new Promise(function(resolve, reject){
-        NodeDelta.queryOne('nid').eq(nid).where('revision').descending().exec(function(err, nodeDelta){
-            if(err){
-                log.error("NodeDelta#findNodeDeltaByNid - DB(NOSQL) Internal error", {err: err});
-                return reject(AppError.throwAppError(500));
-            }
-            if(!nodeDelta){
-                return reject(AppError.throwAppError(404));
-            }
-            resolve(nodeDelta);
-        });
-    });
-};
-
-NodeDelta.getLatestNodeDeltaBatch = function(nodeMetas){
-    return new Promise(function(resolve, reject){
-        var nodeDeltas = [];
-        var jobs = [];
-
-	_.forEach(nodeMetas, function(nodeMeta){
-	    jobs.push(NodeDelta.getLatestNodeDelta(nodeMeta.nid));
-	})
-
-        Promise.settle(jobs).then(function(results){
-            _.forEach(results, function(result){
-                if(result.isFulfilled()){
-                    var delta = result.value();
-                    nodeDeltas.push(delta);
-                } else {
-		    var err = result.reason();
-		    throw err;
-                }
-            });
-            resolve(nodeDeltas);
-        }).catch(function(err){
-	    log.error("#getLatestNodeDeltaBatch", {err : err});
-	    reject(AppError.throwAppError(500));
-	});
-    });
-};
-
-/**
- * 노드의 id와 버전으로 특정 버전의 노드 델타를 얻는다.
- * @param nid
- * @param revnum
- * @param fn
- */
-NodeDelta.getNodeDeltaByNidAndRev = function(nid, revision){
-    return new Promise(function(resolve, reject){
-        NodeDelta.get(
-            {nid : nid, revision : revision},
-            function(err, NodeDelta){
-                if(err){
-                    log.error("NodeDelta#findNodeDeltaByNidAndRev - DB(NOSQL) Internal error", {err: err});
-                    return reject(AppError.throwAppError(500));
-                }
-                if(!NodeDelta){
-                    return reject(AppError.throwAppError(404));
-                }
-                resolve(NodeDelta);
-            }
-        )
-    })
-};
-
 NodeDelta.getNodeDeltaByNidAndRevBatch = function(nodesArray){
-    return new Promise(function(resolve, reject){
-	var keyChunk = _.chunk(nodesArray, NUMBER_OF_REQUEST_CONCURRENCY);
-	var jobs = [];
-	
-	_.forEach(keyChunk, function(keyArray){
-	    jobs.push(NodeDelta.batchGet(keyArray))
-	});
+    var keyChunk = _.chunk(nodesArray, NUMBER_OF_REQUEST_CONCURRENCY);
+    var jobs = [];
+    
+    _.forEach(keyChunk, function(keyArray){
+	jobs.push(NodeDelta.batchGet(keyArray))
+    });
 
-	Promise.settle(jobs).then(function(results){
-	    var found = [];
+    return Promise.settle(jobs).then(function(results){
+	var found = [];
 
-	    _.forEach(results, function(result){
-		if(result.isFulfilled()){
-		    found = _.concat(found, result.value());
-		} else {
-		    throw result.reason();
-		}
-	    });
-	    resolve(found);
-	}).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
+	_.forEach(results, function(result){
+	    if(result.isFulfilled()){
+		found = _.concat(found, result.value());
+	    } else {
+		throw result.reason();
 	    }
-	    reject(AppError.throwAppError(500, err.toString()));
 	});
+	return found;
     });
 };
 	    
-
-
-/**
- * 노드의 id와 버전으로 특정 버전의 노드 델타를 얻는다.
- * @param nid
- * @param revnum
- * @param fn
- */
-NodeDelta.getNodeDeltaByBetweenRev = function(nid, src, dst){
-    return new Promise(function(resolve, reject){
-	var result = [];
-        NodeDelta.query('nid').eq(nid).where('revision').between(src, dst).exec(function(err, nodeDeltas){
-            if(err){
-                log.error("NodeDelta#findNodeDeltaByBetweenRev/DB(NOSQL) Internal error", {err :err});
-                return reject(AppError.throwAppError(500));
-            }
-
-            _.remove(nodeDeltas, function(delta){
-                return delta.revision === src;
-            });
-
-	    _.forEach(nodeDeltas, function(delta){
-		result.push(delta);
-	    });
-	    
-            if(nodeDeltas.length === 0){
-                return reject(AppError.throwAppError(404));
-            }
-	    
-            resolve(result);
-        });
-    })
-};
-
-NodeDelta.getNodeDeltaByBetweenRevBatch = function(nodeMetas, src, dst){
-    return new Promise(function(resolve, reject){
-        var jobs = [];
-
-        _.forEach(nodeMetas, function(nodeMeta){
-            var job = NodeDelta.getNodeDeltaByBetweenRev(nodeMeta.nid, src, dst);
-            jobs.push(job);
-        });
-
-        return Promise.settle(jobs).then(function(results){
-            var nodeDeltas = [];
-            _.forEach(results, function(result){
-                if(result.isFulfilled()){
-                    nodeDeltas = _.concat(nodeDeltas, result.value());
-                } else {
-                    return reject(result.reason());
-                }
-            });
-            resolve(nodeDeltas);
-        })
-    })
-};
-
 /*
  * addNodeDelta를 병렬적으로 일어나도록 한다.
  */
 NodeDelta.addNodeDeltaBatch = function(nodeArray){
-    return new Promise(function(resolve, reject){
+    var nodeDeltaArray = [];
 
-        var nodeDeltaArray = [];
+    _.forEach(nodeArray, function(node){
+        var nodeDelta = {
+            nid : node.nid,
+            revision : node.revision,
+            presence : node.presence,
+            s3Path : node.s3Path,
+            s3ThumbnailPath : node.s3ThumbnailPath,
+            name : node.name,
+            owner : node.owner,
+            updatedDate : node.updatedDate,
+            createdDate : node.createdDate
+        };
+        nodeDeltaArray.push(nodeDelta);
+    });
 
-        _.forEach(nodeArray, function(node){
-            var nodeDelta = {
-                nid : node.nid,
-                revision : node.revision,
-                presence : node.presence,
-                s3Path : node.s3Path,
-                s3ThumbnailPath : node.s3ThumbnailPath,
-                name : node.name,
-                owner : node.owner,
-                updatedDate : node.updatedDate,
-                createdDate : node.createdDate
-            };
-            nodeDeltaArray.push(nodeDelta);
+    var deltaChunk = _.chunk(nodeDeltaArray, NUMBER_OF_REQUEST_CONCURRENCY);
+    var jobs = [];
+
+    _.forEach(deltaChunk, function(chunk){
+        jobs.push(NodeDelta.batchPut(chunk));
+    });
+
+    return Promise.settle(jobs).then(function(results){
+        _.forEach(results, function(result){
+            if(!result.isFulfilled()){
+                throw result.reason();
+            }
         });
-
-        var deltaChunk = _.chunk(nodeDeltaArray, NUMBER_OF_REQUEST_CONCURRENCY);
-        var jobs = [];
-
-        _.forEach(deltaChunk, function(chunk){
-            jobs.push(NodeDelta.batchPut(chunk));
-        });
-
-        Promise.settle(jobs).then(function(results){
-            _.forEach(results, function(result){
-                if(!result.isFulfilled()){
-                    throw result.reason();
-                }
-            });
-            resolve(nodeDeltaArray);
-        }).catch(function(err){
-	    if(err.isAppError){
-		return reject(err);
-	    }
-	    reject(AppError.throwAppError(500, err.toString()));
-        });
+        return nodeDeltaArray;
     });
 };
 

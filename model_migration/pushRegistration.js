@@ -4,7 +4,7 @@
 var PushRegScheme = require('./scheme').PUSH_REGISTRATION;
 
 module.exports = function(connection){
-    return connection.define(PushRegScheme.TABLE, PushRegScheme.SCHEME);
+    return connection.define(PushRegScheme.TABLE, PushRegScheme.SCHEME, PushRegScheme.OPTION);
 
 
 };
