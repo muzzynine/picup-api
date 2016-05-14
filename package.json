@@ -23,17 +23,17 @@
     "passport-http-bearer": "^1.0.1",
     "redis": "^2.4.2",
     "sequelize": "^3.19.3",
+    "squiss": "^1.0.0",
     "validate.js": "^0.9.0",
     "vogels": "^2.2.0"
   },
-    "devDependencies": {
-	"morgan": "^1.6.1",
-	"jshint": "^2.8.0",
-	"mocha": "^2.4.5",
-	"should": "^7.1.1"
+  "devDependencies": {
+    "morgan": "^1.6.1",
+    "jshint": "^2.8.0",
+    "mocha": "^2.4.5",
+    "should": "^7.1.1"
   },
-
-    "scripts": {
-	"test" : "./node_modules/.bin/mocha --recursive -R xunit test/ > test-reports.xml"
-    }
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --recursive -R xunit test/ > test-reports.xml"
+  }
 }
