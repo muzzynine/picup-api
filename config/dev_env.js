@@ -54,5 +54,18 @@ module.exports = {
 	QUEUE : {
 	    name : "picup"
 	}
+    },
+
+    AWS : {
+	region : 'ap-northeast-1'
+    },
+
+    MQ : {
+	awsConfig : {
+	    region : 'ap-northeast-1'
+	},
+	queueName : 'picup-mq',
+	queueUrl : 'https://sqs.ap-northeast-1.amazonaws.com/063860250091/picup-mq',
+	bodyFormat : 'json'
     }
 };

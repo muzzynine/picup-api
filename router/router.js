@@ -52,7 +52,6 @@ router.use(function(req, res, next){
 
     var user = req.user;
     user.latestReqDate = Date.now();
-    console.log("USER ID : " + user.id);
 
     Session.set(accessToken, user).then(function(){
 	return;
