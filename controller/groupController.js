@@ -206,7 +206,6 @@ var commit2 = function(user, gid, revision, deltaArray, db, mq){
 	    ]
 	} else {
 	    return commitInternal2(user, this.group, commitList, db).spread(function(committedGroup, delta){
-		var self = this;
 		/*
 		 * 커밋이 완료된 후에 유저정보가 바뀌었기 떄문에 세션에서 해당 유저의 정보를 삭제한다.
 		 * 이후 요청시 다시 인증서버로부터 세션에 세팅될 것이다.
@@ -217,7 +216,7 @@ var commit2 = function(user, gid, revision, deltaArray, db, mq){
 		return Group.getMemberList(committedGroup).then(function (members) {
 		    var uids = [];
 		    members.forEach(function (member) {
-			if(self.user.id !== member.id) uids.push(member.id);
+			if(user.id !== member.id) uids.push(member.id);
 		    });
 		    if(uids === 0) return;
 		    else return mq.sendCommitMessage(uids, committedGroup.id);
