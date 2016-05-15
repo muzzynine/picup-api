@@ -52,6 +52,10 @@ module.exports = {
 	}
     },
 
+    AWS : {
+	region : 'ap-northeast-1'
+    },
+
     MQ : {
 	awsConfig : {
 	    region : 'ap-northeast-1'
