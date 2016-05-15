@@ -217,7 +217,7 @@ var commit2 = function(user, gid, revision, deltaArray, db, mq){
 		return Group.getMemberList(committedGroup).then(function (members) {
 		    var uids = [];
 		    members.forEach(function (member) {
-			if(self.user.id !== member.id) uids.push(member.id);
+			if(user.id !== member.id) uids.push(member.id);
 		    });
 		    if(uids === 0) return;
 		    else return mq.sendCommitMessage(uids, committedGroup.id);
