@@ -48,14 +48,6 @@ module.exports = {
 	}
     },
 
-    AMQP : {
-	amqpAddr: "amqp://localhost:5672",
-
-	QUEUE : {
-	    name : "picup"
-	}
-    },
-
     AWS : {
 	region : 'ap-northeast-1'
     },
