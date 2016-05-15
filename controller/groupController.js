@@ -223,7 +223,8 @@ var commit2 = function(user, gid, revision, deltaArray, db, mq){
 		    else return mq.sendCommitMessage(uids, committedGroup.id);
 		}).then(function(){
 		    return [committedGroup, delta];
-		}).catch(function(){
+		}).catch(function(err){
+		    log.error("#commit", {err :err}, {stack : err.stack});
 		    return [committedGroup, delta];
 		});
 	    });
