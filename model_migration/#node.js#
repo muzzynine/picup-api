@@ -149,7 +149,6 @@ Node.replaceNodeBatch = function(nodes){
                 if(nodeDelta){
                     result.push(_.merge(nodeMeta, nodeDelta));
                 }
-		console.log(result);
             });
             return result;
         });
@@ -164,7 +163,6 @@ Node.deleteNodeBatch = function(nodes){
      */
 
     return NodeMeta.getNodeMetaByGidAndRelPathBatch(nodes).then(function(nodeMetas){
-	console.log(nodeMetas);
         var alivedNodes = [];
         nodes.forEach(function(node){
             var nodeMeta = _.find(nodeMetas, {gid : node.gid, relPath : node.relPath});
@@ -172,8 +170,8 @@ Node.deleteNodeBatch = function(nodes){
                 node.nid = nodeMeta.nid;
                 alivedNodes.push(node);
             }
-	    console.log(alivedNodes);
         });
+	
         return NodeDelta.addNodeDeltaBatch(alivedNodes).then(function(nodeDeltas){
             var result = [];
             alivedNodes.forEach(function(nodeMeta){

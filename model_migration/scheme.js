@@ -185,9 +185,17 @@ module.exports = {
     NODE_META : {
         TABLE : "nodeMeta",
         SCHEME : {
-            gid : { type : String, hashKey: true },
+            gid : { type : String, hashKey: true,
+		    index : {
+			global : true,
+			rangeKey : 'relPath',
+			name : 'gid-relPath-index',
+			project : true,
+			throughput : 5
+		    }
+		  },
             nid : { type : String, rangeKey: true },
-            relPath : { type : String, required : true},
+            relPath : { type : String, rangeKey: true, required : true },
             kind : { type : String, required : true },
             author : { type : String, required : true },
             uploadedDate : { type : Number },

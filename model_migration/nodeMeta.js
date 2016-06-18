@@ -7,23 +7,23 @@ var Promise = require('bluebird');
 var _ = require('lodash');
 var Dynamo = require('dynamoose');
 var NodeMetaScheme = require('./scheme').NODE_META;
-var NodeMeta = Dynamo.model(NodeMetaScheme.TABLE, NodeMetaScheme.SCHEME);
+var nodeMetaModel = Dynamo.model(NodeMetaScheme.TABLE, NodeMetaScheme.SCHEME);
 var uuid = require('node-uuid');
 var bunyan = require('bunyan');
 var log = bunyan.getLogger('DataModelLogger');
 
 var AppError = require('../lib/appError');
 
-module.exports = NodeMeta;
-
 var NUMBER_OF_REQUEST_CONCURRENCY = 100;
+
+function NodeMeta(){};
 
 NodeMeta.getNodeMetaByIdsBatch = function(metaKeyArray){
     var keyChunk = _.chunk(metaKeyArray, NUMBER_OF_REQUEST_CONCURRENCY);
     var jobs = [];
 
     _.forEach(keyChunk, function(keyArray){
-        jobs.push(NodeMeta.batchGet(keyArray))
+        jobs.push(nodeMetaModel.batchGet(keyArray))
     });
 
     return Promise.settle(jobs).then(function(results){
@@ -47,10 +47,9 @@ NodeMeta.getNodeMetaByIdsBatch = function(metaKeyArray){
  * @param fn
  */
 
-
 NodeMeta.getNodeMetaByGidAndRelPath = function(gid, relPath){
     return new Promise(function(resolve, reject){
-        NodeMeta.queryOne('gid').eq(gid).where('relPath').eq(relPath).exec(function(err, nodeMeta){
+        nodeMetaModel.queryOne({gid : {eq : gid}, relPath : {eq : relPath}}, function(err, nodeMeta){
             if(err){
                 return reject(AppError.throwAppError(500, err.toString()));
             }
@@ -65,9 +64,10 @@ NodeMeta.getNodeMetaByGidAndRelPath = function(gid, relPath){
 /*
  * 다수의 getNodeMetaByGidAndRelPath를 병렬적으로 일어나도록 한다.
  */
+
 NodeMeta.getNodeMetaByGidAndRelPathBatch = function(nodeInfos){
     var jobs = [];
-    _.forEach(nodeInfos, function(nodeInfo){
+    nodeInfos.forEach(function(nodeInfo){
         jobs.push(NodeMeta.getNodeMetaByGidAndRelPath(nodeInfo.gid, nodeInfo.relPath));
     });
 
@@ -107,7 +107,7 @@ NodeMeta.addNodeMetaBatch = function(nodeArray){
     var jobs = [];
 
     _.forEach(metaChunk, function(chunk){
-	jobs.push(NodeMeta.batchPut(chunk))
+	jobs.push(nodeMetaModel.batchPut(chunk))
     });
     
     return Promise.settle(jobs).then(function(results){
@@ -120,3 +120,4 @@ NodeMeta.addNodeMetaBatch = function(nodeArray){
     });
 };
 
+module.exports = NodeMeta;
